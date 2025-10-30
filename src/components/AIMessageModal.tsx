@@ -71,6 +71,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null)
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [activeContentType, setActiveContentType] = useState<'text' | 'image' | null>(null); // New state for active content type
 
   const resetState = () => {
     setAiPrompt('')
@@ -84,12 +85,22 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
 
   const handleClose = () => {
     resetState()
+    setActiveContentType(null); // Reset active content type on close
     onClose()
   }
+
+  const handleSelectContentType = (type: 'text' | 'image') => {
+    setActiveContentType(type);
+    resetState(); // Clear previous generated content and errors when switching type
+  };
 
   const handleGeneratePrompt = async () => {
     if (!cardTitle || !cardDescription) {
       setAiError("Impossible de générer un prompt sans les détails de la carte.")
+      return
+    }
+    if (!activeContentType) {
+      setAiError("Veuillez sélectionner un type de contenu (Texte ou Image) d'abord.")
       return
     }
 
@@ -100,7 +111,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     setGeneratedVideoUrl(null)
     setGeneratedAudioUrl(null)
 
-    const promptDescription = `Créé un prompt pour créer un message de type 'texte' pour une carte avec le titre '${cardTitle}' et la description '${cardDescription}'.RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
+    const promptDescription = `Créé un prompt pour créer un message de type '${activeContentType === 'text' ? 'texte' : 'image'}' pour une carte avec le titre '${cardTitle}' et la description '${cardDescription}'.RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
 
     try {
       const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
@@ -143,6 +154,10 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
       setAiError("Impossible de générer du contenu sans les détails de la carte.")
       return
     }
+    if (!activeContentType) {
+      setAiError("Veuillez sélectionner un type de contenu (Texte ou Image) d'abord.")
+      return
+    }
 
     setGeneratingType(type)
     setAiError(null)
@@ -151,9 +166,9 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     setGeneratedVideoUrl(null)
     setGeneratedAudioUrl(null)
 
-    let descriptionPrompt = ` RETOURNEZ UNIQUEMENT ET DIRECTEMENT le message. Fait un message pour une carte avec le prompt suivant : ${cardDescription}.`
+    let descriptionPrompt = `Fait un message pour une carte, la carte possède la description suivante : ${cardDescription}.RENVOI UNIQUEMENT UN MESSAGE`
     if (aiPrompt) {
-      descriptionPrompt += ` La demande spécifique est : ${aiPrompt}.`
+      descriptionPrompt += ` La demande spécifique est : ${aiPrompt}.RENVOI UNIQUEMENT UN MESSAGE`
     }
 
     try {
@@ -226,139 +241,142 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
           </div>
         )}
 
-        <div className="mb-4">
-          <label htmlFor="aiPrompt" className="block text-sm font-medium text-gray-700 mb-2">
-            Décrivez ce que vous souhaitez générer :
-          </label>
-          <textarea
-            id="aiPrompt"
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-y"
-            rows={3}
-            placeholder="Ex: un message humoristique, une image de chat mignon, un lien vers une musique joyeuse..."
-            value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            disabled={!!generatingType}
-          ></textarea>
+        {/* Sélecteur Initial (B) */}
+        <div className="flex gap-4 mb-6">
           <button
             type="button"
-            onClick={handleGeneratePrompt}
-            className={`mt-2 flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
-              generatingType === 'prompt' ? 'bg-blue-700 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            onClick={() => handleSelectContentType('text')}
+            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
+              ${activeContentType === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+              `}
             disabled={!!generatingType}
           >
-            {generatingType === 'prompt' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Lightbulb className="w-5 h-5 mr-2" />}
-            Générer un prompt
+            <Type className="w-5 h-5 mr-2" />
+            ✍️ Message Texte
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSelectContentType('image')}
+            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
+              ${activeContentType === 'image' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+              `}
+            disabled={!!generatingType}
+          >
+            <Image className="w-5 h-5 mr-2" />
+            🖼️ Image Créative
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => handleGenerateAIContent('text')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
-              generatingType === 'text' ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={!!generatingType}
-          >
-            {generatingType === 'text' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Type className="w-5 h-5 mr-2" />}
-            Générer Texte
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGenerateAIContent('image')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
-              generatingType === 'image' ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={!!generatingType}
-          >
-            {generatingType === 'image' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Image className="w-5 h-5 mr-2" />}
-            Générer Image
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGenerateAIContent('video')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
-              generatingType === 'video' ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={!!generatingType}
-          >
-            {generatingType === 'video' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Video className="w-5 h-5 mr-2" />}
-            Générer Vidéo (Lien)
-          </button>
-          <button
-            type="button"
-            onClick={() => handleGenerateAIContent('audio')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
-              generatingType === 'audio' ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            disabled={!!generatingType}
-          >
-            {generatingType === 'audio' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Mic className="w-5 h-5 mr-2" />}
-            Générer Audio (Lien)
-          </button>
-        </div>
+        {/* Affichage Conditionnel du champ de description (A), bouton d'aide (A.2) et zone de résultat (C) */}
+        {activeContentType && (
+          <>
+            <div className="mb-4">
+              <label htmlFor="aiPrompt" className="block text-sm font-medium text-gray-700 mb-2">
+                Décrivez ce que vous souhaitez générer :
+              </label>
+              <textarea
+                id="aiPrompt"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-y"
+                rows={3}
+                placeholder={activeContentType === 'text'
+                  ? "description d'un message (ton, objectif, etc.)"
+                  : "description visuelle (style artistique, couleurs, sujet, composition)"
+                }
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                disabled={!!generatingType}
+              ></textarea>
+              <button
+                type="button"
+                onClick={handleGeneratePrompt}
+                className={`mt-2 flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
+                  generatingType === 'prompt' ? 'bg-blue-700 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                disabled={!!generatingType}
+              >
+                {generatingType === 'prompt' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Lightbulb className="w-5 h-5 mr-2" />}
+                Optimiser le prompt {activeContentType === 'text' ? 'Message (IA)' : 'Visuel (IA)'}
+              </button>
+            </div>
 
-        {/* Display Generated Content */}
-        {(generatedText || generatedImage || generatedVideoUrl || generatedAudioUrl) && (
-          <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-            <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-              <Sparkles className="w-5 h-5 mr-2 text-purple-500" />
-              Résultat de l'IA :
-            </h3>
-            {generatedText && (
-              <div className="mb-4">
-                <p className="text-gray-700 mb-2">{generatedText}</p>
-                <button
-                  onClick={() => onInsertContent('text', generatedText)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
-                >
-                  Insérer ce texte
-                </button>
-              </div>
-            )}
-            {generatedImage && (
-              <div className="mb-4">
-                <img src={generatedImage} alt="Generated" className="max-w-full h-auto rounded-lg shadow-md mb-2" style={{ maxHeight: '200px', objectFit: 'contain' }} />
-                <button
-                  onClick={() => onInsertContent('image', generatedImage)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
-                >
-                  Insérer cette image
-                </button>
-              </div>
-            )}
-            {generatedVideoUrl && (
-              <div className="mb-4">
-                {getYouTubeId(generatedVideoUrl) ? (
-                  <YouTubeEmbed videoId={getYouTubeId(generatedVideoUrl)!} />
-                ) : (
-                  <a href={generatedVideoUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline flex items-center mb-2">
-                    <Video className="w-4 h-4 mr-1" /> Voir la vidéo générée
-                  </a>
+            {/* Display Generated Content (C) */}
+            {(generatedText || generatedImage || generatedVideoUrl || generatedAudioUrl) && (
+              <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
+                  <Sparkles className="w-5 h-5 mr-2 text-purple-500" />
+                  Résultat de l'IA :
+                </h3>
+                {generatedText && activeContentType === 'text' && (
+                  <div className="mb-4">
+                    <p className="text-gray-700 mb-2">{generatedText}</p>
+                    <button
+                      onClick={() => onInsertContent('text', generatedText)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
+                    >
+                      Insérer ce texte
+                    </button>
+                  </div>
                 )}
-                <button
-                  onClick={() => onInsertContent('video', generatedVideoUrl)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
-                >
-                  Insérer ce lien vidéo
-                </button>
+                {generatedImage && activeContentType === 'image' && (
+                  <div className="mb-4">
+                    <img src={generatedImage} alt="Generated" className="max-w-full h-auto rounded-lg shadow-md mb-2" style={{ maxHeight: '200px', objectFit: 'contain' }} />
+                    <button
+                      onClick={() => onInsertContent('image', generatedImage)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
+                    >
+                      Insérer cette image
+                    </button>
+                  </div>
+                )}
+                {/* Video and Audio results are still displayed if generated, but their generation buttons are removed from this dynamic flow */}
+                {generatedVideoUrl && (
+                  <div className="mb-4">
+                    {getYouTubeId(generatedVideoUrl) ? (
+                      <YouTubeEmbed videoId={getYouTubeId(generatedVideoUrl)!} />
+                    ) : (
+                      <a href={generatedVideoUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline flex items-center mb-2">
+                        <Video className="w-4 h-4 mr-1" /> Voir la vidéo générée
+                      </a>
+                    )}
+                    <button
+                      onClick={() => onInsertContent('video', generatedVideoUrl)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
+                    >
+                      Insérer ce lien vidéo
+                    </button>
+                  </div>
+                )}
+                {generatedAudioUrl && (
+                  <div className="mb-4">
+                    <audio controls src={generatedAudioUrl} className="w-full mb-2">
+                      Votre navigateur ne supporte pas l'élément audio.
+                    </audio>
+                    <button
+                      onClick={() => onInsertContent('audio', generatedAudioUrl)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
+                    >
+                      Insérer ce lien audio
+                    </button>
+                  </div>
+                )}
               </div>
             )}
-            {generatedAudioUrl && (
-              <div className="mb-4">
-                <audio controls src={generatedAudioUrl} className="w-full mb-2">
-                  Votre navigateur ne supporte pas l'élément audio.
-                </audio>
-                <button
-                  onClick={() => onInsertContent('audio', generatedAudioUrl)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm"
-                >
-                  Insérer ce lien audio
-                </button>
-              </div>
-            )}
-          </div>
+
+            {/* Bouton de Résultat Final */}
+            <div className="mt-6">
+              <button
+                type="button"
+                onClick={() => handleGenerateAIContent(activeContentType)}
+                className={`flex items-center px-6 py-3 rounded-lg shadow-sm transition-colors duration-200 w-full justify-center
+                  ${generatingType === activeContentType ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}
+                  disabled:opacity-50 disabled:cursor-not-allowed`}
+                disabled={!!generatingType}
+              >
+                {generatingType === activeContentType ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
+                Générer {activeContentType === 'text' ? 'le Texte' : 'l\'Image'}
+              </button>
+            </div>
+          </>
         )}
 
         <div className="mt-6 flex justify-end">
