@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Sparkles, Type, Image, Video, Mic, Loader2, Play } from 'lucide-react'
+import { X, Sparkles, Type, Image, Video, Mic, Loader2, Play, Lightbulb } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 
 interface AIMessageModalProps {
@@ -65,7 +65,7 @@ const YouTubeEmbed: React.FC<{ videoId: string }> = ({ videoId }) => {
 
 const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInsertContent, cardTitle, cardDescription }) => {
   const [aiPrompt, setAiPrompt] = useState('')
-  const [generatingType, setGeneratingType] = useState<'text' | 'image' | 'video' | 'audio' | null>(null)
+  const [generatingType, setGeneratingType] = useState<'text' | 'image' | 'video' | 'audio' | 'prompt' | null>(null)
   const [generatedText, setGeneratedText] = useState<string | null>(null)
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null)
@@ -87,6 +87,57 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     onClose()
   }
 
+  const handleGeneratePrompt = async () => {
+    if (!cardTitle || !cardDescription) {
+      setAiError("Impossible de générer un prompt sans les détails de la carte.")
+      return
+    }
+
+    setGeneratingType('prompt')
+    setAiError(null)
+    setGeneratedText(null)
+    setGeneratedImage(null)
+    setGeneratedVideoUrl(null)
+    setGeneratedAudioUrl(null)
+
+    const promptDescription = `Créé un prompt pour créer un message de type 'texte' pour une carte avec le titre '${cardTitle}' et la description '${cardDescription}'.RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
+
+    try {
+      const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Connection': 'keep-alive',
+        },
+        body: JSON.stringify({
+          "Description": promptDescription,
+          "Type": "Texte",
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `Erreur lors de la génération du prompt.`)
+      }
+
+      const data = await response.json()
+
+      if (data && data.Support && data.Type === 'Texte') {
+        const generated = data.Support.startsWith('"') && data.Support.endsWith('"')
+          ? data.Support.slice(1, -1)
+          : data.Support;
+        setAiPrompt(generated)
+      } else {
+        throw new Error("La réponse de génération de prompt est invalide ou vide.")
+      }
+    } catch (err) {
+      console.error("Failed to generate prompt:", err)
+      setAiError((err as Error).message || "Impossible de générer le prompt. Veuillez réessayer.")
+    } finally {
+      setGeneratingType(null)
+    }
+  }
+
   const handleGenerateAIContent = async (type: 'text' | 'image' | 'video' | 'audio') => {
     if (!cardTitle || !cardDescription) {
       setAiError("Impossible de générer du contenu sans les détails de la carte.")
@@ -100,7 +151,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     setGeneratedVideoUrl(null)
     setGeneratedAudioUrl(null)
 
-    let descriptionPrompt = `Fait un message pour une carte, la carte possède la description suivante : ${cardDescription}.`
+    let descriptionPrompt = ` RETOURNEZ UNIQUEMENT ET DIRECTEMENT le message. Fait un message pour une carte avec le prompt suivant : ${cardDescription}.`
     if (aiPrompt) {
       descriptionPrompt += ` La demande spécifique est : ${aiPrompt}.`
     }
@@ -188,6 +239,17 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
             onChange={(e) => setAiPrompt(e.target.value)}
             disabled={!!generatingType}
           ></textarea>
+          <button
+            type="button"
+            onClick={handleGeneratePrompt}
+            className={`mt-2 flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200 ${
+              generatingType === 'prompt' ? 'bg-blue-700 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+            disabled={!!generatingType}
+          >
+            {generatingType === 'prompt' ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : <Lightbulb className="w-5 h-5 mr-2" />}
+            Générer un prompt
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-3 mb-6">
