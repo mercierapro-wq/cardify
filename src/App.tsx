@@ -9,6 +9,8 @@ import CardDetailPage from './pages/CardDetailPage'
 interface User {
   userId: string // email
   _id: string // MongoDB _id
+  firstName?: string // Added firstName
+  lastName?: string // Added lastName
 }
 
 function App() {
@@ -22,8 +24,8 @@ function App() {
     }
   }, [])
 
-  const handleLoginSuccess = (userId: string, _id: string) => {
-    const user = { userId, _id }
+  const handleLoginSuccess = (userId: string, _id: string, firstName?: string, lastName?: string) => {
+    const user = { userId, _id, firstName, lastName }
     setCurrentUser(user)
     localStorage.setItem('currentUser', JSON.stringify(user))
     navigate('/my-cards') // Navigate to /my-cards after successful login

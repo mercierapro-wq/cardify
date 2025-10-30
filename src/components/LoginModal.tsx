@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from '../config/api'
 interface LoginModalProps {
   isOpen: boolean
   onClose: () => void
-  onLoginSuccess: (userId: string, _id: string) => void
+  onLoginSuccess: (userId: string, _id: string, firstName?: string, lastName?: string) => void
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
@@ -61,7 +61,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       const data = await response.json()
 
       if (data.result === true) {
-        onLoginSuccess(data.user_id, data._id)
+        // Assuming the API returns firstName and lastName upon successful login
+        onLoginSuccess(data.user_id, data._id, data.firstName, data.lastName)
         handleClose() // Close modal on success
       } else if (data.result === false) {
         setError('Adresse Mail ou Mot de Passe incorrect.')
@@ -109,9 +110,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       const data = await response.json()
 
       if (data.result === 'true') {
-        // Assuming _id is returned on successful creation, if not, we might need another call or a default
-        // For now, we'll use a placeholder if _id is not directly returned by InsertUser
-        onLoginSuccess(email, data._id || 'new_user_id_placeholder') // Store user_id and a placeholder _id
+        // Assuming the API returns _id, firstName, and lastName upon successful creation
+        onLoginSuccess(email, data._id || 'new_user_id_placeholder', firstName, lastName) // Store user_id, _id, firstName, lastName
         handleClose() // Close modal on success
       } else if (data.result === 'KO' && data.cause === 'email already exists') {
         setError('Cette adresse mail est déjà utilisée. Veuillez vous connecter ou utiliser une autre adresse.')

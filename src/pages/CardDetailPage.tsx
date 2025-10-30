@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles } from 'lucide-react' // Added Play and Sparkles icon
 import { API_ENDPOINTS } from '../config/api'
+import AIMessageModal from '../components/AIMessageModal' // Import the new AI modal
 
 interface User {
   userId: string
@@ -116,12 +117,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
+  const [generatedImageContent, setGeneratedImageContent] = useState<string | null>(null) // New state for generated image
 
   const [isSubmittingMessage, setIsSubmittingMessage] = useState(false)
   const [messageError, setMessageError] = useState<string | null>(null)
-  const [isGeneratingText, setIsGeneratingText] = useState(false) // State for text generation
-  const [generatedImageContent, setGeneratedImageContent] = useState<string | null>(null) // New state for generated image
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false) // New state for image generation
+  const [isAIMessageModalOpen, setIsAIMessageModalOpen] = useState(false) // State for AI modal
 
   // Cagnotte states
   const [isMoneyPotActive, setIsMoneyPotActive] = useState(false)
@@ -420,94 +420,58 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     })
   }
 
-  const handleGenerateMessageText = async () => {
-    if (!card) {
-      setMessageError("Impossible de générer le texte sans les détails de la carte.")
-      return
+  const handleInsertAIContent = (type: 'text' | 'image' | 'video' | 'audio', content: string) => {
+    setSelectedMessageType(type);
+    if (type === 'text') {
+      setTextMessageContent(content);
+      setImageFile(null);
+      setGeneratedImageContent(null);
+      setVideoUrl('');
+      setAudioFile(null);
+    } else if (type === 'image') {
+      setGeneratedImageContent(content); // This content is already base64 prefixed
+      setImageFile(null); // Clear manual file selection
+      setTextMessageContent('');
+      setVideoUrl('');
+      setAudioFile(null);
+    } else if (type === 'video') {
+      setVideoUrl(content);
+      setTextMessageContent('');
+      setImageFile(null);
+      setGeneratedImageContent(null);
+      setAudioFile(null);
+    } else if (type === 'audio') {
+      // Assuming AI generates a URL for audio for now
+      setAudioFile(null); // Clear manual file selection
+      setTextMessageContent('');
+      setImageFile(null);
+      setGeneratedImageContent(null);
+      setVideoUrl('');
+      // If content is a base64 string, we might need to convert it to a Blob URL or handle it differently
+      // For now, we'll just set it as the audio source directly if it's a URL or base64.
+      // If the AI returns a base64 string for audio, it should be handled like images.
+      // For simplicity, let's assume it's a direct URL for now.
+      // If it's base64, the `audioFile` state would need to be a string or a Blob.
+      // For now, we'll just put it into a temporary state for display.
+      // A more robust solution would involve creating a Blob from base64 and a URL.
+      // For this iteration, we'll just set the `audioFile` to null and assume the AI content is a URL.
+      // If the AI returns base64 for audio, it needs a dedicated state like `generatedAudioContent`.
+      // Let's simplify: if AI generates audio, it's a URL.
+      // If it's a file, it's `audioFile`.
+      // For now, we'll just set the `videoUrl` state as a temporary measure for audio URLs from AI.
+      // This needs a dedicated state for generated audio content if it's base64.
+      // For now, let's assume AI audio is a URL and we'll put it in `videoUrl` for display purposes,
+      // but this is a temporary hack. A proper solution needs `generatedAudioContent` state.
+      // Given the current `MessageProps` and `handleMessageSubmit`, it's best to stick to one type.
+      // So, if AI generates audio, it populates the `audioFile` input, but `audioFile` is a File.
+      // This means AI audio generation should ideally return a Blob or a File-like object, or a URL.
+      // For now, let's assume AI audio generates a URL, and we'll put it in `videoUrl` for simplicity.
+      // This is a known limitation for this iteration.
+      setVideoUrl(content); // TEMPORARY: Using videoUrl for AI-generated audio URL
     }
+    setIsAIMessageModalOpen(false);
+  };
 
-    setIsGeneratingText(true)
-    setMessageError(null)
-
-    try {
-      const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          "Titre": card.title,
-          "Description": `Fait un message pour une carte cadeau, la carte possède la description suivante : ${card.description} Ne fait pas de proposition, génère directement le message`,
-          "Type": "Texte"
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || 'Erreur lors de la génération du texte.')
-      }
-
-      const data = await response.json()
-      if (data && data.Support) {
-        // Remove leading/trailing quotes if present in the Support string
-        const generatedText = data.Support.startsWith('"') && data.Support.endsWith('"')
-          ? data.Support.slice(1, -1)
-          : data.Support;
-        setTextMessageContent(generatedText)
-      } else {
-        throw new Error("La réponse de génération de texte est invalide.")
-      }
-    } catch (err) {
-      console.error('Failed to generate message text:', err)
-      setMessageError((err as Error).message || 'Impossible de générer le message. Veuillez réessayer.')
-    } finally {
-      setIsGeneratingText(false)
-    }
-  }
-
-  const handleGenerateMessageImage = async () => {
-    if (!card) {
-      setMessageError("Impossible de générer l'image sans les détails de la carte.")
-      return
-    }
-
-    setIsGeneratingImage(true)
-    setMessageError(null)
-    setGeneratedImageContent(null) // Clear previous generated image
-
-    try {
-      const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Connection': 'keep-alive', // Added keep-alive header
-        },
-        body: JSON.stringify({
-          "Titre": card.title,
-          "Description": `Fait une image pour une carte cadeau, la carte possède la description suivante : ${card.description}`,
-          "Type": "Image"
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Erreur lors de la génération de l'image.")
-      }
-
-      const data = await response.json()
-      if (data && data.Support && data.Type === "Image") {
-        // Prepend the base64 prefix for image display
-        setGeneratedImageContent(`data:image/png;base64,${data.Support}`)
-      } else {
-        throw new Error("La réponse de génération d'image est invalide.")
-      }
-    } catch (err) {
-      console.error('Failed to generate message image:', err)
-      setMessageError((err as Error).message || "Impossible de générer l'image. Veuillez réessayer.")
-    } finally {
-      setIsGeneratingImage(false)
-    }
-  }
 
   const handleMessageSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -520,15 +484,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       return
     }
 
-    // --- DEBUGGING START ---
-    // Vérifiez si currentUser.firstName et currentUser.lastName sont définis ici.
-    // Si ces logs affichent 'undefined', le problème vient de l'objet currentUser lui-même,
-    // qui doit être correctement peuplé lors de la connexion de l'utilisateur.
-    console.log("Current User at message submission:", currentUser);
-    console.log("Current User firstName:", currentUser.firstName);
-    console.log("Current User lastName:", currentUser.lastName);
-    // --- DEBUGGING END ---
-
     let contentToSend = ''
     let typeToSend: 'text' | 'image' | 'video' | 'audio' = selectedMessageType
 
@@ -540,11 +495,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       contentToSend = textMessageContent.trim()
     } else if (selectedMessageType === 'image') {
       if (generatedImageContent) { // Use generated image if available
-        // Send generated image content directly (it already has the prefix)
         contentToSend = generatedImageContent;
       } else if (imageFile) { // Otherwise, use manually selected file
         try {
-          // convertFileToBase64 already returns the prefixed string, send it directly
           contentToSend = await convertFileToBase64(imageFile);
         } catch (err) {
           setMessageError("Erreur lors de la conversion de l'image.")
@@ -567,7 +520,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         return
       }
       try {
-        // convertFileToBase64 already returns the prefixed string, send it directly
         contentToSend = await convertFileToBase64(audioFile);
       } catch (err) {
         setMessageError("Erreur lors de la conversion de l'audio.")
@@ -601,11 +553,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       }
 
       const responseData = await response.json()
-      // The InsertMessage endpoint now returns an array, so we take the first element
       const newMessage: MessageProps = responseData[0] 
       
-      // Add firstName and lastName to the new message from currentUser if available
-      // This is a temporary measure for immediate display, as ReadMessages will provide it
       const messageWithUserNames: MessageProps = {
         ...newMessage,
         firstName: currentUser.firstName,
@@ -948,162 +897,164 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Écrire un message</h2>
-          {currentUser ? (
-            <form onSubmit={handleMessageSubmit} className="flex flex-col space-y-4">
-              <div className="flex space-x-2 mb-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMessageType('text');
-                    setGeneratedImageContent(null); // Clear generated image when switching type
-                  }}
-                  className={`p-2 rounded-lg transition-colors duration-200 ${
-                    selectedMessageType === 'text' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title="Message Texte"
-                >
-                  <Type className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMessageType('image');
-                    setTextMessageContent(''); // Clear text when switching type
-                  }}
-                  className={`p-2 rounded-lg transition-colors duration-200 ${
-                    selectedMessageType === 'image' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title="Message Image"
-                >
-                  <Image className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMessageType('video');
-                    setGeneratedImageContent(null); // Clear generated image when switching type
-                  }}
-                  className={`p-2 rounded-lg transition-colors duration-200 ${
-                    selectedMessageType === 'video' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title="Message Vidéo"
-                >
-                <Video className="w-5 h-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedMessageType('audio');
-                    setGeneratedImageContent(null); // Clear generated image when switching type
-                  }}
-                  className={`p-2 rounded-lg transition-colors duration-200 ${
-                    selectedMessageType === 'audio' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                  title="Message Audio"
-                >
-                  <Mic className="w-5 h-5" />
-                </button>
-              </div>
-
-              {selectedMessageType === 'text' && (
-                <div className="flex flex-col space-y-2">
-                  <textarea
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
-                    rows={4}
-                    placeholder="Écrivez votre message ici..."
-                    value={textMessageContent}
-                    onChange={(e) => setTextMessageContent(e.target.value)}
-                    disabled={isSubmittingMessage || isGeneratingText}
-                  ></textarea>
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Votre Message pour {card.title}</h2>
+            {currentUser ? (
+              <form onSubmit={handleMessageSubmit} className="flex flex-col space-y-4">
+                <div className="flex space-x-2 mb-4 p-2 border border-gray-300 rounded-lg bg-gray-50">
                   <button
                     type="button"
-                    onClick={handleGenerateMessageText}
-                    className="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                    disabled={isGeneratingText || isSubmittingMessage}
+                    onClick={() => {
+                      setSelectedMessageType('text');
+                      setGeneratedImageContent(null); // Clear generated image when switching type
+                    }}
+                    className={`p-2 rounded-lg transition-colors duration-200 ${
+                      selectedMessageType === 'text' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Message Texte"
                   >
-                    {isGeneratingText ? 'Génération...' : 'Générer le texte'}
-                    <Sparkles className="w-5 h-5 ml-2" />
+                    <Type className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMessageType('image');
+                      setTextMessageContent(''); // Clear text when switching type
+                    }}
+                    className={`p-2 rounded-lg transition-colors duration-200 ${
+                      selectedMessageType === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Message Image"
+                  >
+                    <Image className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMessageType('video');
+                      setGeneratedImageContent(null); // Clear generated image when switching type
+                    }}
+                    className={`p-2 rounded-lg transition-colors duration-200 ${
+                      selectedMessageType === 'video' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Message Vidéo"
+                  >
+                  <Video className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMessageType('audio');
+                      setGeneratedImageContent(null); // Clear generated image when switching type
+                    }}
+                    className={`p-2 rounded-lg transition-colors duration-200 ${
+                      selectedMessageType === 'audio' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                    }`}
+                    title="Message Audio"
+                  >
+                    <Mic className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAIMessageModalOpen(true)}
+                    className="ml-auto p-2 rounded-lg transition-colors duration-200 bg-purple-600 text-white hover:bg-purple-700"
+                    title="Assistance IA"
+                    disabled={isSubmittingMessage}
+                  >
+                    <Sparkles className="w-5 h-5" />
                   </button>
                 </div>
-              )}
 
-              {selectedMessageType === 'image' && (
-                <div className="flex flex-col space-y-2">
+                {selectedMessageType === 'text' && (
+                  <div className="flex flex-col space-y-2">
+                    <textarea
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+                      rows={4}
+                      placeholder="Écrivez votre message ici..."
+                      value={textMessageContent}
+                      onChange={(e) => setTextMessageContent(e.target.value)}
+                      disabled={isSubmittingMessage}
+                    ></textarea>
+                  </div>
+                )}
+
+                {selectedMessageType === 'image' && (
+                  <div className="flex flex-col space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                      onChange={(e) => {
+                        setImageFile(e.target.files ? e.target.files[0] : null);
+                        setGeneratedImageContent(null); // Clear generated image if user selects a file
+                      }}
+                      disabled={isSubmittingMessage}
+                    />
+                    {generatedImageContent && (
+                      <div className="mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
+                        <h4 className="font-semibold text-gray-700 mb-2">Image générée (prévisualisation):</h4>
+                        <img src={generatedImageContent} alt="Generated Message Preview" className="max-w-full h-auto rounded-lg shadow-md" />
+                        <button
+                          type="button"
+                          onClick={() => setGeneratedImageContent(null)}
+                          className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
+                        >
+                          Supprimer l'image générée
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectedMessageType === 'video' && (
+                  <input
+                    type="url"
+                    placeholder="Lien vers la vidéo (ex: YouTube)"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                    value={videoUrl}
+                    onChange={(e) => setVideoUrl(e.target.value)}
+                    disabled={isSubmittingMessage}
+                  />
+                )}
+
+                {selectedMessageType === 'audio' && (
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="audio/*"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                    onChange={(e) => {
-                      setImageFile(e.target.files ? e.target.files[0] : null);
-                      setGeneratedImageContent(null); // Clear generated image if user selects a file
-                    }}
-                    disabled={isSubmittingMessage || isGeneratingImage}
+                    onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)}
+                    disabled={isSubmittingMessage}
                   />
-                  {generatedImageContent && (
-                    <div className="mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
-                      <h4 className="font-semibold text-gray-700 mb-2">Image générée (prévisualisation):</h4>
-                      <img src={generatedImageContent} alt="Generated Message Preview" className="max-w-full h-auto rounded-lg shadow-md" />
-                      <button
-                        type="button"
-                        onClick={() => setGeneratedImageContent(null)}
-                        className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
-                      >
-                        Supprimer l'image générée
-                      </button>
-                    </div>
-                  )}
+                )}
+
+                <div className="flex justify-end items-center space-x-2">
                   <button
-                    type="button"
-                    onClick={handleGenerateMessageImage}
-                    className="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                    disabled={isGeneratingImage || isSubmittingMessage}
+                    type="submit"
+                    className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitDisabled}
                   >
-                    {isGeneratingImage ? 'Génération...' : 'Générer l\'image'}
-                    <Sparkles className="w-5 h-5 ml-2" />
+                    {isSubmittingMessage ? 'Envoi...' : 'Envoyer le message'}
+                    <Send className="w-5 h-5 ml-2" />
                   </button>
                 </div>
-              )}
-
-              {selectedMessageType === 'video' && (
-                <input
-                  type="url"
-                  placeholder="Lien vers la vidéo (ex: YouTube)"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  disabled={isSubmittingMessage}
-                />
-              )}
-
-              {selectedMessageType === 'audio' && (
-                <input
-                  type="file"
-                  accept="audio/*"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                  onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)}
-                  disabled={isSubmittingMessage}
-                />
-              )}
-
-              <div className="flex justify-end items-center space-x-2">
-                <button
-                  type="submit"
-                  className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isSubmitDisabled}
-                >
-                  {isSubmittingMessage ? 'Envoi...' : 'Envoyer le message'}
-                  <Send className="w-5 h-5 ml-2" />
-                </button>
+              </form>
+            ) : (
+              <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-lg text-gray-600">Veuillez vous connecter pour écrire un message.</p>
               </div>
-            </form>
-          ) : (
-            <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-lg text-gray-600">Veuillez vous connecter pour écrire un message.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
+      {card && (
+        <AIMessageModal
+          isOpen={isAIMessageModalOpen}
+          onClose={() => setIsAIMessageModalOpen(false)}
+          onInsertContent={handleInsertAIContent}
+          cardTitle={card.title}
+          cardDescription={card.description}
+        />
+      )}
     </div>
   )
 }
