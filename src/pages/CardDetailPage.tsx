@@ -1,38 +1,38 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles } from 'lucide-react' // Added Play and Sparkles icon
+import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users } from 'lucide-react' // Added Users icon
 import { API_ENDPOINTS } from '../config/api'
-import AIMessageModal from '../components/AIMessageModal' // Import the new AI modal
+import AIMessageModal from '../components/AIMessageModal'
+import InviteParticipantsModal from '../components/InviteParticipantsModal' // Import new modal
+import ParticipantList from '../components/ParticipantList' // Import new component
 
 interface User {
   userId: string
   _id: string
-  firstName?: string // Added firstName
-  lastName?: string // Added lastName
+  firstName?: string
+  lastName?: string
 }
 
 interface CardProps {
   _id: string
   title: string
   description: string
-  // recipient: string // REMOVED: No longer used
   cover: string
-  // shareAt: string // REMOVED: No longer used
   createdBy: string
   createdAt: string
   updatedAt: string
   moneyPotLink?: string
-  status: 'draft' | 'sent' | 'upcoming' // Added status field
+  status: 'draft' | 'sent' | 'upcoming'
 }
 
 interface MessageProps {
   _id: string
   card_id: string
-  user_id: string // The email of the user who created the message
-  firstName?: string // Added firstName from ReadMessages response
-  lastName?: string // Added lastName from ReadMessages response
+  user_id: string
+  firstName?: string
+  lastName?: string
   message_type: 'text' | 'image' | 'video' | 'audio'
-  content: string // Text, base64 for image/audio, URL for video
+  content: string
   createdAt: string
   updatedAt: string
 }
@@ -41,9 +41,12 @@ interface UlinkCardProps {
   _id: string
   user_id: string
   card_id: string
-  role: 'admin' | 'contributor' | 'beneficiary' // Added beneficiary role
+  role: 'admin' | 'contributor' | 'beneficiary'
   updatedAt: string
   createdAt: string
+  // Added for enriched participant data
+  firstName?: string
+  lastName?: string
 }
 
 interface CardDetailPageProps {
@@ -137,6 +140,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const [isUpdatingBeneficiary, setIsUpdatingBeneficiary] = useState(false)
   const [beneficiaryUpdateError, setBeneficiaryUpdateError] = useState<string | null>(null)
 
+  // Participant states
+  const [participants, setParticipants] = useState<UlinkCardProps[]>([])
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [loadingParticipants, setLoadingParticipants] = useState(true)
+
 
   // User role on this card
   const [userRole, setUserRole] = useState<'admin' | 'contributor' | 'beneficiary' | null>(null)
@@ -146,94 +154,136 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const isBeneficiary = currentUser && userRole === 'beneficiary'
   const isCardSent = card?.status === 'sent'
 
-  useEffect(() => {
-    const fetchCardDetails = async () => {
-      if (!cardId) {
-        setError("Aucun ID de carte fourni.")
-        setLoadingCard(false)
-        return
-      }
-
-      try {
-        setLoadingCard(true)
-        setError(null)
-
-        const response = await fetch(API_ENDPOINTS.GET_CARDS, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ _ids: [cardId] }),
-        })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'Erreur lors de la récupération des détails de la carte.')
-        }
-
-        const data: CardProps[] = await response.json()
-
-        if (data && data.length > 0) {
-          setCard(data[0])
-        } else {
-          setError("Carte non trouvée.")
-        }
-      } catch (err) {
-        console.error('Failed to fetch card details:', err)
-        setError((err as Error).message || 'Impossible de charger les détails de la carte. Veuillez réessayer plus tard.')
-      } finally {
-        setLoadingCard(false)
-      }
+  const fetchCardDetails = async () => {
+    if (!cardId) {
+      setError("Aucun ID de carte fourni.")
+      setLoadingCard(false)
+      return
     }
 
-    const fetchUserRoleAndBeneficiary = async () => {
-      if (!currentUser || !cardId) {
-        setUserRole(null)
-        setBeneficiaryEmail(null)
-        return
+    try {
+      setLoadingCard(true)
+      setError(null)
+
+      const response = await fetch(API_ENDPOINTS.GET_CARDS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ _ids: [cardId] }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Erreur lors de la récupération des détails de la carte.')
       }
-      try {
-        const response = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
+
+      const data: CardProps[] = await response.json()
+
+      if (data && data.length > 0) {
+        setCard(data[0])
+      } else {
+        setError("Carte non trouvée.")
+      }
+    } catch (err) {
+      console.error('Failed to fetch card details:', err)
+      setError((err as Error).message || 'Impossible de charger les détails de la carte. Veuillez réessayer plus tard.')
+    } finally {
+      setLoadingCard(false)
+    }
+  }
+
+  const fetchParticipantsAndRole = async () => {
+    if (!cardId) {
+      setParticipants([])
+      setUserRole(null)
+      setBeneficiaryEmail(null)
+      setLoadingParticipants(false)
+      return
+    }
+
+    try {
+      setLoadingParticipants(true)
+      const response = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ card_id: cardId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Erreur lors de la récupération des rôles des utilisateurs.')
+      }
+
+      const ulinkCards: UlinkCardProps[] = await response.json()
+
+      // Fetch user details for each participant
+      const uniqueUserIds = Array.from(new Set(ulinkCards.map(ul => ul.user_id)))
+      const userDetailsPromises = uniqueUserIds.map(async (userId) => {
+        const userResponse = await fetch(API_ENDPOINTS.GET_USER, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ card_id: cardId }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userId }),
         })
-
-        if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.message || 'Erreur lors de la récupération des rôles des utilisateurs.')
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          return { userId, firstName: userData.firstName, lastName: userData.lastName }
         }
+        return { userId, firstName: undefined, lastName: undefined }
+      })
 
-        const ulinkCards: UlinkCardProps[] = await response.json()
-        const currentUserLink = ulinkCards.find(link => link.user_id === currentUser.userId)
+      const allUserDetails = await Promise.all(userDetailsPromises)
+      const userDetailsMap = new Map(allUserDetails.map(u => [u.userId, { firstName: u.firstName, lastName: u.lastName }]))
+
+      const enrichedParticipants: UlinkCardProps[] = ulinkCards.map(ul => ({
+        ...ul,
+        firstName: userDetailsMap.get(ul.user_id)?.firstName,
+        lastName: userDetailsMap.get(ul.user_id)?.lastName,
+      }))
+
+      setParticipants(enrichedParticipants)
+
+      // Determine current user's role
+      if (currentUser) {
+        const currentUserLink = enrichedParticipants.find(link => link.user_id === currentUser.userId)
         if (currentUserLink) {
           setUserRole(currentUserLink.role)
         } else {
-          setUserRole(null) // User is not linked to this card
+          setUserRole(null)
         }
-
-        // Find beneficiary email
-        const beneficiaryLink = ulinkCards.find(link => link.role === 'beneficiary')
-        if (beneficiaryLink) {
-          setBeneficiaryEmail(beneficiaryLink.user_id)
-          setBeneficiaryEmailInput(beneficiaryLink.user_id) // Initialize input with current beneficiary
-        } else {
-          setBeneficiaryEmail(null)
-          setBeneficiaryEmailInput('')
-        }
-
-      } catch (err) {
-        console.error('Failed to fetch user role or beneficiary:', err)
+      } else {
         setUserRole(null)
-        setBeneficiaryEmail(null)
       }
-    }
 
+      // Find beneficiary email
+      const beneficiaryLink = enrichedParticipants.find(link => link.role === 'beneficiary')
+      if (beneficiaryLink) {
+        setBeneficiaryEmail(beneficiaryLink.user_id)
+        setBeneficiaryEmailInput(beneficiaryLink.user_id)
+      } else {
+        setBeneficiaryEmail(null)
+        setBeneficiaryEmailInput('')
+      }
+
+    } catch (err) {
+      console.error('Failed to fetch participants, user role or beneficiary:', err)
+      setUserRole(null)
+      setBeneficiaryEmail(null)
+      setParticipants([])
+    } finally {
+      setLoadingParticipants(false)
+    }
+  }
+
+  useEffect(() => {
     fetchCardDetails()
-    fetchUserRoleAndBeneficiary()
-  }, [cardId, currentUser])
+  }, [cardId])
+
+  useEffect(() => {
+    fetchParticipantsAndRole()
+  }, [cardId, currentUser]) // Re-fetch if cardId or currentUser changes
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -403,6 +453,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       // We can update the local state with the new beneficiary email
       setBeneficiaryEmail(beneficiaryEmailInput.trim())
       setIsEditingBeneficiary(false)
+      fetchParticipantsAndRole() // Refresh participants to show updated beneficiary
     } catch (err) {
       console.error('Failed to update beneficiary email:', err)
       setBeneficiaryUpdateError((err as Error).message || 'Impossible de mettre à jour le bénéficiaire.')
@@ -441,33 +492,12 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       setGeneratedImageContent(null);
       setAudioFile(null);
     } else if (type === 'audio') {
-      // Assuming AI generates a URL for audio for now
-      setAudioFile(null); // Clear manual file selection
+      // TEMPORARY: Using videoUrl for AI-generated audio URL, as discussed in AIMessageModal
+      setVideoUrl(content);
+      setAudioFile(null);
       setTextMessageContent('');
       setImageFile(null);
       setGeneratedImageContent(null);
-      setVideoUrl('');
-      // If content is a base64 string, we might need to convert it to a Blob URL or handle it differently
-      // For now, we'll just set it as the audio source directly if it's a URL or base64.
-      // If the AI returns a base64 string for audio, it should be handled like images.
-      // For simplicity, let's assume it's a direct URL for now.
-      // If it's base64, the `audioFile` state would need to be a string or a Blob.
-      // For now, we'll just put it into a temporary state for display.
-      // A more robust solution would involve creating a Blob from base64 and a URL.
-      // For this iteration, we'll just set the `audioFile` to null and assume the AI content is a URL.
-      // If the AI returns base64 for audio, it needs a dedicated state like `generatedAudioContent`.
-      // Let's simplify: if AI generates audio, it's a URL.
-      // If it's a file, it's `audioFile`.
-      // For now, we'll just set the `videoUrl` state as a temporary measure for audio URLs from AI.
-      // This needs a dedicated state for generated audio content if it's base64.
-      // For now, let's assume AI audio is a URL and we'll put it in `videoUrl` for display purposes,
-      // but this is a temporary hack. A proper solution needs `generatedAudioContent` state.
-      // Given the current `MessageProps` and `handleMessageSubmit`, it's best to stick to one type.
-      // So, if AI generates audio, it populates the `audioFile` input, but `audioFile` is a File.
-      // This means AI audio generation should ideally return a Blob or a File-like object, or a URL.
-      // For now, let's assume AI audio generates a URL, and we'll put it in `videoUrl` for simplicity.
-      // This is a known limitation for this iteration.
-      setVideoUrl(content); // TEMPORARY: Using videoUrl for AI-generated audio URL
     }
     setIsAIMessageModalOpen(false);
   };
@@ -641,7 +671,59 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     (selectedMessageType === 'audio' && !audioFile)
   )
 
-  if (loadingCard) {
+  // Participant Management Handlers
+  const handleOpenInviteModal = () => setIsInviteModalOpen(true)
+  const handleCloseInviteModal = () => setIsInviteModalOpen(false)
+  const handleInvitationsSent = () => {
+    fetchParticipantsAndRole() // Refresh participant list after invitations
+    handleCloseInviteModal()
+  }
+
+  const handleDeleteParticipant = async (ulinkCardId: string, participantEmail: string) => {
+    if (!isAdmin || !cardId) {
+      setUpdateError("Vous n'avez pas la permission de supprimer des participants.")
+      return
+    }
+
+    setUpdateError(null)
+
+    try {
+      // Assuming UPDATE_ULINK_CARD can be used to "delete" by setting a specific role or status
+      // Or, if the backend supports a true DELETE, this would be a DELETE request.
+      // For now, we'll simulate removal by updating the role to 'removed' or similar,
+      // or simply filter from the UI and rely on a backend cleanup.
+      // Given the API is `UPDATE_ULINK_CARD`, we'll assume it can update the role to 'removed' or similar.
+      // If the backend truly deletes the entry, we'd need a DELETE endpoint.
+      // For this implementation, we'll update the role to 'removed' and filter it out.
+      const response = await fetch(API_ENDPOINTS.UPDATE_ULINK_CARD, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          _id: ulinkCardId, // Use the _id of the ulinkCard entry
+          card_id: cardId,
+          user_id: participantEmail,
+          role: 'removed', // Or 'inactive', depending on backend logic for soft delete
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || `Erreur lors de la suppression du participant ${participantEmail}.`)
+      }
+
+      // Optimistically update UI or re-fetch
+      fetchParticipantsAndRole()
+
+    } catch (err) {
+      console.error('Failed to delete participant:', err)
+      setUpdateError((err as Error).message || 'Impossible de supprimer le participant. Veuillez réessayer.')
+    }
+  }
+
+
+  if (loadingCard || loadingParticipants) {
     return (
       <div className="flex justify-center items-center h-64">
         <p className="text-lg text-gray-700">Chargement des détails de la carte...</p>
@@ -857,6 +939,34 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
+          {/* Participant Section */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Participants</h2>
+              <button
+                onClick={handleOpenInviteModal}
+                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                Inviter des Participants
+              </button>
+            </div>
+            {loadingParticipants ? (
+              <div className="flex justify-center items-center h-24">
+                <p className="text-gray-700">Chargement des participants...</p>
+              </div>
+            ) : (
+              <ParticipantList
+                participants={participants.filter(p => p.role !== 'removed')} // Filter out 'removed' participants
+                currentUserEmail={currentUser?.userId}
+                isAdmin={isAdmin}
+                onDeleteParticipant={handleDeleteParticipant}
+              />
+            )}
+          </div>
+
+          <hr className="my-6 border-gray-200" />
+
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Messages</h2>
 
           {messageError && (
@@ -1053,6 +1163,14 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           onInsertContent={handleInsertAIContent}
           cardTitle={card.title}
           cardDescription={card.description}
+        />
+      )}
+      {card && (
+        <InviteParticipantsModal
+          isOpen={isInviteModalOpen}
+          onClose={handleCloseInviteModal}
+          cardId={card._id}
+          onInvitationsSent={handleInvitationsSent}
         />
       )}
     </div>
