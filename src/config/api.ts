@@ -12,5 +12,6 @@ export const API_ENDPOINTS = {
   GET_CARDS_BY_USER: `${API_BASE_URL}/webhook/GetCardsByUser`, // New endpoint for reading cards linked to a user
   GET_USERS_BY_CARD: `${API_BASE_URL}/webhook/GetUsersByCard`, // New endpoint for reading users linked to a card
   UPDATE_ULINK_CARD: `${API_BASE_URL}/webhook/UpdateUlinkCard`, // New endpoint for updating user-card links
+  DELETE_ULINK_CARD: `${API_BASE_URL}/webhook/DeleteUlinkCard`, // New endpoint for deleting user-card links
   CREATE_CONTENT: `${API_BASE_URL}/webhook/create_content`, // New endpoint for generating message content
 }

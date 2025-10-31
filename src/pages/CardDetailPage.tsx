@@ -688,23 +688,14 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     setUpdateError(null)
 
     try {
-      // Assuming UPDATE_ULINK_CARD can be used to "delete" by setting a specific role or status
-      // Or, if the backend supports a true DELETE, this would be a DELETE request.
-      // For now, we'll simulate removal by updating the role to 'removed' or similar,
-      // or simply filter from the UI and rely on a backend cleanup.
-      // Given the API is `UPDATE_ULINK_CARD`, we'll assume it can update the role to 'removed' or similar.
-      // If the backend truly deletes the entry, we'd need a DELETE endpoint.
-      // For this implementation, we'll update the role to 'removed' and filter it out.
-      const response = await fetch(API_ENDPOINTS.UPDATE_ULINK_CARD, {
-        method: 'POST',
+      const response = await fetch(API_ENDPOINTS.DELETE_ULINK_CARD, {
+        method: 'POST', // Assuming POST for deletion as per API spec
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          _id: ulinkCardId, // Use the _id of the ulinkCard entry
           card_id: cardId,
           user_id: participantEmail,
-          role: 'removed', // Or 'inactive', depending on backend logic for soft delete
         }),
       })
 
@@ -713,8 +704,15 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         throw new Error(errorData.message || `Erreur lors de la suppression du participant ${participantEmail}.`)
       }
 
-      // Optimistically update UI or re-fetch
-      fetchParticipantsAndRole()
+      const responseData = await response.json();
+      // The server returns [{"deletedCount":1}] for a successful deletion.
+      // We check if deletedCount is at least 1.
+      if (responseData && responseData.length > 0 && responseData[0].deletedCount >= 1) {
+        // Successfully deleted, refresh the participant list
+        fetchParticipantsAndRole();
+      } else {
+        throw new Error(`La suppression du participant ${participantEmail} n'a pas été confirmée par le serveur.`);
+      }
 
     } catch (err) {
       console.error('Failed to delete participant:', err)
