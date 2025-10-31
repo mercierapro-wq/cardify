@@ -111,7 +111,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     setGeneratedVideoUrl(null)
     setGeneratedAudioUrl(null)
 
-    const promptDescription = `Créé un prompt pour créer un message de type '${activeContentType === 'text' ? 'texte' : 'image'}' pour une carte avec le titre '${cardTitle}' et la description '${cardDescription}'.RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
+    const promptDescription = `Créé un prompt pour créer un message de type '${activeContentType === 'text' ? 'texte' : 'image'}' pour une carte dont le titre est '${cardTitle}' et la description est '${cardDescription}'. Base toi sur le titre et la description de la carte pour créer un prompt original. RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
 
     try {
       const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
@@ -165,11 +165,14 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     setGeneratedImage(null)
     setGeneratedVideoUrl(null)
     setGeneratedAudioUrl(null)
-
-    let descriptionPrompt = `Fait un message pour une carte, la carte possède la description suivante : ${cardDescription}.RENVOI UNIQUEMENT UN MESSAGE`
+		let cType=activeContentType === 'text' ? 'texte' : 'image'
+    let descriptionPrompt
     if (aiPrompt) {
-      descriptionPrompt += ` La demande spécifique est : ${aiPrompt}.RENVOI UNIQUEMENT UN MESSAGE`
+      descriptionPrompt = `Fait un(e) '${cType}' pour une carte, La demande spécifique est : ${aiPrompt}.RENVOI UNIQUEMENT UN(E) '${cType}'`
     }
+		else {
+			descriptionPrompt = `Fait un(e) '${cType}' pour une carte, la carte possède la description suivante : ${cardDescription}.RENVOI UNIQUEMENT UN(E) '${cType}'`
+		}
 
     try {
       const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
