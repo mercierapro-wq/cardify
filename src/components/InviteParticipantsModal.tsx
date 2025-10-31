@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Mail, Loader2 } from 'lucide-react'
+import { X, Mail, Loader2, Link as LinkIcon, Check } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 
 interface InviteParticipantsModalProps {
@@ -14,6 +14,9 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [copySuccess, setCopySuccess] = useState<string | null>(null)
+
+  const cardLink = `${window.location.origin}/card/${cardId}`
 
   const handleInvite = async () => {
     setError(null)
@@ -34,7 +37,6 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
     try {
       const results = await Promise.all(emails.map(async (email) => {
         try {
-          // First, ensure the user exists or create them
           let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -42,15 +44,9 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
           })
 
           if (!userResponse.ok) {
-            // If user already exists, the API might return a 409 or similar,
-            // but we still want to proceed with linking.
-            // For simplicity, we'll assume if it's not 2xx, it's an error unless it's a known "already exists" case.
-            // A more robust API would return the existing user on conflict.
-            // For now, we'll just log and try to link.
             console.warn(`User creation/check for ${email} failed or user exists. Proceeding to link.`, await userResponse.json());
           }
 
-          // Then, link the user to the card as a contributor
           const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -77,8 +73,8 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
 
       if (successfulInvites > 0) {
         setSuccessMessage(`${successfulInvites} invitation(s) envoyée(s) avec succès.`)
-        onInvitationsSent() // Notify parent to refresh participants
-        setEmailsInput('') // Clear input on success
+        onInvitationsSent()
+        setEmailsInput('')
       }
       if (failedInvites.length > 0) {
         setError(`Échec de l'envoi pour ${failedInvites.map(f => f.email).join(', ')}.`)
@@ -92,6 +88,34 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
       setError((err as Error).message || "Une erreur inattendue est survenue lors de l'envoi des invitations.")
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleCopyLink = async () => {
+    setCopySuccess(null) // Clear previous messages
+    try {
+      // Try the modern Clipboard API first
+      await navigator.clipboard.writeText(cardLink)
+      setCopySuccess('Lien copié !')
+    } catch (err) {
+      console.error('Failed to copy link using navigator.clipboard:', err)
+      // Fallback to document.execCommand if modern API fails
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = cardLink
+        textarea.style.position = 'fixed' // Prevent scrolling to bottom
+        textarea.style.opacity = '0' // Make it invisible
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        setCopySuccess('Lien copié ! (via fallback)') // Indicate fallback success
+      } catch (fallbackErr) {
+        console.error('Failed to copy link using document.execCommand:', fallbackErr)
+        setCopySuccess('Échec de la copie.')
+      }
+    } finally {
+      setTimeout(() => setCopySuccess(null), 2000) // Clear message after 2 seconds
     }
   }
 
@@ -120,6 +144,36 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
             {successMessage}
           </div>
         )}
+
+        {/* Section for copying card link */}
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <label htmlFor="cardLink" className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+            <LinkIcon className="w-4 h-4 mr-1 text-gray-500" />
+            Lien direct vers la carte :
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              id="cardLink"
+              type="text"
+              readOnly
+              value={cardLink}
+              className="flex-grow p-2 border border-gray-300 rounded-lg bg-white text-gray-700 text-sm truncate"
+              onClick={(e) => (e.target as HTMLInputElement).select()}
+            />
+            <button
+              onClick={handleCopyLink}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 flex items-center text-sm"
+            >
+              {copySuccess && copySuccess.includes('Lien copié') ? <Check className="w-4 h-4 mr-1" /> : <LinkIcon className="w-4 h-4 mr-1" />}
+              {copySuccess || 'Copier'}
+            </button>
+          </div>
+          {copySuccess && (
+            <p className={`mt-2 text-sm ${copySuccess.includes('Échec') ? 'text-red-500' : 'text-green-600'}`}>
+              {copySuccess}
+            </p>
+          )}
+        </div>
 
         <div className="mb-4">
           <label htmlFor="emailsInput" className="block text-sm font-medium text-gray-700 mb-2">

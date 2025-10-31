@@ -14,4 +14,5 @@ export const API_ENDPOINTS = {
   UPDATE_ULINK_CARD: `${API_BASE_URL}/webhook/UpdateUlinkCard`, // New endpoint for updating user-card links
   DELETE_ULINK_CARD: `${API_BASE_URL}/webhook/DeleteUlinkCard`, // New endpoint for deleting user-card links
   CREATE_CONTENT: `${API_BASE_URL}/webhook/create_content`, // New endpoint for generating message content
+  SEND_EMAIL: `${API_BASE_URL}/webhook/SendEmail`, // New endpoint for sending emails
 }

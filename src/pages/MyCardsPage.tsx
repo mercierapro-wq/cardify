@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { PlusCircle, Gift, Users, Share2, LogIn } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 import LoginModal from '../components/LoginModal'
+import InviteParticipantsModal from '../components/InviteParticipantsModal' // Import new modal
 
 interface CardProps {
   _id: string
@@ -44,6 +45,8 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false) // State for invite modal
+  const [selectedCardIdForInvite, setSelectedCardIdForInvite] = useState<string | null>(null) // State to hold cardId for invite modal
 
   const navigate = useNavigate()
 
@@ -199,6 +202,18 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
   const openLoginModal = () => setIsLoginModalOpen(true)
   const closeLoginModal = () => setIsLoginModalOpen(false)
 
+  const handleOpenInviteModal = (cardId: string) => {
+    setSelectedCardIdForInvite(cardId)
+    setIsInviteModalOpen(true)
+  }
+
+  const handleCloseInviteModal = () => {
+    setIsInviteModalOpen(false)
+    setSelectedCardIdForInvite(null)
+    // Optionally re-fetch cards to update contributor count if needed
+    // fetchCards(); 
+  }
+
   if (!currentUser) {
     return (
       <div className="flex flex-col justify-center items-center h-96 bg-white rounded-xl shadow-lg border border-gray-200 p-8">
@@ -282,7 +297,10 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
                     <Gift className="w-4 h-4 mr-1" />
                     Voir la carte
                   </Link>
-                  <button className="text-gray-500 hover:text-gray-700 flex items-center text-sm font-medium">
+                  <button
+                    onClick={() => handleOpenInviteModal(card._id)}
+                    className="text-gray-500 hover:text-gray-700 flex items-center text-sm font-medium"
+                  >
                     <Share2 className="w-4 h-4 mr-1" />
                     Partager
                   </button>
@@ -291,6 +309,15 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
             </div>
           ))}
         </div>
+      )}
+
+      {selectedCardIdForInvite && (
+        <InviteParticipantsModal
+          isOpen={isInviteModalOpen}
+          onClose={handleCloseInviteModal}
+          cardId={selectedCardIdForInvite}
+          onInvitationsSent={handleCloseInviteModal} // Close modal and potentially refresh list
+        />
       )}
     </div>
   )

@@ -419,7 +419,58 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   const handleSendCard = async () => {
     if (!isAdmin || !card || card.status === 'sent') return
-    await updateCardField('status', 'sent')
+    
+    setUpdateError(null); // Clear previous errors
+    setIsUpdatingCard(true); // Indicate loading
+
+    if (!beneficiaryEmail) {
+      setUpdateError("Impossible d'envoyer la carte : aucun bénéficiaire n'est défini.");
+      setIsUpdatingCard(false);
+      return;
+    }
+
+    try {
+      const cardLink = `${window.location.origin}/card/${card._id}`;
+
+      // RG 1: Call SendEmail endpoint
+      const sendEmailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          send_to: beneficiaryEmail,
+          send_content: card.title,
+          send_subject: card.description,
+          card_link: cardLink,
+        }),
+      });
+
+      if (!sendEmailResponse.ok) {
+        const errorData = await sendEmailResponse.json();
+        throw new Error(errorData.message || "Erreur lors de l'envoi de l'e-mail.");
+      }
+
+      const emailResult = await sendEmailResponse.json();
+      // Check if the email was successfully sent (RG 1 success condition)
+      // The API returns an object like {"id":"...", "threadId":"...", "labelIds":["SENT"]}
+      const isEmailSent = emailResult && emailResult.labelIds && emailResult.labelIds.includes('SENT');
+
+      if (!isEmailSent) {
+        throw new Error("L'e-mail n'a pas pu être envoyé. Veuillez vérifier les détails.");
+      }
+
+      // RG 2: Update card status to "Envoyé"
+      await updateCardField('status', 'sent');
+      // RG 3: Card becomes visible for the beneficiary (handled by useEffect)
+
+      setUpdateError(null); // Clear any errors if successful
+    } catch (err) {
+      console.error('Failed to send card:', err);
+      setUpdateError((err as Error).message || 'Impossible d\'envoyer la carte. Veuillez réessayer.');
+    } finally {
+      setIsUpdatingCard(false);
+    }
   }
 
   const handleSaveBeneficiaryEmail = async () => {
