@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { PlusCircle, Gift, Users, Share2, LogIn } from 'lucide-react'
+import { PlusCircle, Gift, Users, Share2, LogIn, Trash2 } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 import LoginModal from '../components/LoginModal'
-import InviteParticipantsModal from '../components/InviteParticipantsModal' // Import new modal
+import InviteParticipantsModal from '../components/InviteParticipantsModal'
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal' // Import new modal
 
 interface CardProps {
   _id: string
@@ -19,6 +20,7 @@ interface CardProps {
   createdAt: string
   updatedAt: string
   moneyPotLink?: string
+  userRoleOnCard?: 'admin' | 'contributor' | 'beneficiary' // Added to store current user's role for this card
 }
 
 interface UlinkCardProps {
@@ -47,142 +49,144 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false) // State for invite modal
   const [selectedCardIdForInvite, setSelectedCardIdForInvite] = useState<string | null>(null) // State to hold cardId for invite modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false) // State for delete modal
+  const [cardToDelete, setCardToDelete] = useState<CardProps | null>(null) // State to hold card to be deleted
 
   const navigate = useNavigate()
 
-  useEffect(() => {
+  const fetchCards = async () => {
     if (!currentUser) {
       setLoading(false)
-      // No error message, just don't fetch cards and prompt login
       return
     }
 
-    const fetchCards = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+    try {
+      setLoading(true)
+      setError(null)
 
-        // RG 1: Fetch linked card IDs and roles using GetCardsByUser for the current user
-        const ulinkResponse = await fetch(API_ENDPOINTS.GET_CARDS_BY_USER, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ user_id: currentUser.userId }),
-        })
+      // RG 1: Fetch linked card IDs and roles using GetCardsByUser for the current user
+      const ulinkResponse = await fetch(API_ENDPOINTS.GET_CARDS_BY_USER, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ user_id: currentUser.userId }),
+      })
 
-        if (!ulinkResponse.ok) {
-          const errorData = await ulinkResponse.json()
-          throw new Error(errorData.message || 'Erreur lors de la récupération des liens de cartes.')
-        }
+      if (!ulinkResponse.ok) {
+        const errorData = await ulinkResponse.json()
+        throw new Error(errorData.message || 'Erreur lors de la récupération des liens de cartes.')
+      }
 
-        const ulinkCards: UlinkCardProps[] = await ulinkResponse.json()
+      const ulinkCards: UlinkCardProps[] = await ulinkResponse.json()
 
-        if (ulinkCards.length === 0) {
-          setMyCards([])
-          setLoading(false)
-          return
-        }
+      if (ulinkCards.length === 0) {
+        setMyCards([])
+        setLoading(false)
+        return
+      }
 
-        const cardIds = ulinkCards.map(link => link.card_id)
-        const cardRoles = new Map<string, 'admin' | 'contributor' | 'beneficiary'>(
-          ulinkCards.map(link => [link.card_id, link.role])
-        )
+      const cardIds = ulinkCards.map(link => link.card_id)
+      const cardRoles = new Map<string, 'admin' | 'contributor' | 'beneficiary'>(
+        ulinkCards.map(link => [link.card_id, link.role])
+      )
 
-        // RG 2: Fetch card details using GetCards with the retrieved card_ids
-        const cardsResponse = await fetch(API_ENDPOINTS.GET_CARDS, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ _ids: cardIds }), // Pass array of card IDs
-        })
+      // RG 2: Fetch card details using GetCards with the retrieved card_ids
+      const cardsResponse = await fetch(API_ENDPOINTS.GET_CARDS, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ _ids: cardIds }), // Pass array of card IDs
+      })
 
-        if (!cardsResponse.ok) {
-          const errorData = await cardsResponse.json()
-          throw new Error(errorData.message || 'Erreur lors de la récupération des cartes.')
-        }
+      if (!cardsResponse.ok) {
+        const errorData = await cardsResponse.json()
+        throw new Error(errorData.message || 'Erreur lors de la récupération des cartes.')
+      }
 
-        const data: CardProps[] = await cardsResponse.json()
+      const data: CardProps[] = await cardsResponse.json()
 
-        // CRITICAL: Ensure data is an array before proceeding
-        if (!Array.isArray(data)) {
-          console.error('API_ENDPOINTS.GET_CARDS did not return an array:', data);
-          throw new Error('La réponse de GetCards n\'est pas un tableau valide.');
-        }
+      // CRITICAL: Ensure data is an array before proceeding
+      if (!Array.isArray(data)) {
+        console.error('API_ENDPOINTS.GET_CARDS did not return an array:', data);
+        throw new Error('La réponse de GetCards n\'est pas un tableau valide.');
+      }
 
-        const cardPromises = data.map(async (card) => {
-            const role = cardRoles.get(card._id) || 'contributor' // Default to contributor if role not found
-            
-            // Filter for beneficiaries: only show if card status is 'sent'
-            if (role === 'beneficiary' && card.status !== 'sent') {
-              return null // Don't include this card for beneficiary if not sent
-            }
+      const cardPromises = data.map(async (card) => {
+          const role = cardRoles.get(card._id) || 'contributor' // Default to contributor if role not found
+          
+          // Filter for beneficiaries: only show if card status is 'sent'
+          if (role === 'beneficiary' && card.status !== 'sent') {
+            return null // Don't include this card for beneficiary if not sent
+          }
 
-            // Fetch all users linked to this specific card to count contributors and determine recipient
-            const usersByCardResponse = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ card_id: card._id }),
-            });
-
-            if (!usersByCardResponse.ok) {
-                console.error(`Failed to fetch users for card ${card._id}`);
-                return null; // Skip this card if user links cannot be fetched
-            }
-            const linkedUsers: UlinkCardProps[] = await usersByCardResponse.json();
-            
-            // Ensure linkedUsers is an array before accessing .length
-            const contributors = Array.isArray(linkedUsers) ? linkedUsers.length : 0; 
-            
-            let cardType: 'created' | 'participated' | 'beneficiary'
-            if (card.createdBy === currentUser.userId) {
-              cardType = 'created'
-            } else if (role === 'beneficiary') {
-              cardType = 'beneficiary'
-            } else {
-              cardType = 'participated'
-            }
-
-            // Determine recipient for display
-            const beneficiaryLink = Array.isArray(linkedUsers) ? linkedUsers.find(link => link.role === 'beneficiary') : undefined;
-            const beneficiaryEmail = beneficiaryLink ? beneficiaryLink.user_id : null;
-
-            // Get other participants (excluding current user and beneficiary) for display
-            const otherParticipantsEmails = Array.isArray(linkedUsers)
-                ? linkedUsers.filter(link => link.user_id !== currentUser.userId && link.user_id !== beneficiaryEmail)
-                             .map(link => link.user_id)
-                : [];
-            
-            const displayRecipient = beneficiaryEmail;
-
-            return {
-              ...card,
-              contributors,
-              type: cardType,
-              recipient: displayRecipient,
-            }
+          // Fetch all users linked to this specific card to count contributors and determine recipient
+          const usersByCardResponse = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ card_id: card._id }),
           });
 
-        const resolvedCards = await Promise.all(cardPromises);
+          if (!usersByCardResponse.ok) {
+              console.error(`Failed to fetch users for card ${card._id}`);
+              return null; // Skip this card if user links cannot be fetched
+          }
+          const linkedUsers: UlinkCardProps[] = await usersByCardResponse.json();
+          
+          // Ensure linkedUsers is an array before accessing .length
+          const contributors = Array.isArray(linkedUsers) ? linkedUsers.length : 0; 
+          
+          let cardType: 'created' | 'participated' | 'beneficiary'
+          if (card.createdBy === currentUser.userId) {
+            cardType = 'created'
+          } else if (role === 'beneficiary') {
+            cardType = 'beneficiary'
+          } else {
+            cardType = 'participated'
+          }
 
-        // CRITICAL: Ensure resolvedCards is an array before filtering
-        if (!Array.isArray(resolvedCards)) {
-          console.error('Promise.all did not resolve to an array:', resolvedCards);
-          throw new Error('Erreur interne: Le traitement des cartes n\'a pas renvoyé un tableau valide.');
-        }
+          // Determine recipient for display
+          const beneficiaryLink = Array.isArray(linkedUsers) ? linkedUsers.find(link => link.role === 'beneficiary') : undefined;
+          const beneficiaryEmail = beneficiaryLink ? beneficiaryLink.user_id : null;
 
-        const processedCards = resolvedCards.filter(Boolean) as CardProps[] // This is line 158
+          // Get other participants (excluding current user and beneficiary) for display
+          const otherParticipantsEmails = Array.isArray(linkedUsers)
+              ? linkedUsers.filter(link => link.user_id !== currentUser.userId && link.user_id !== beneficiaryEmail)
+                           .map(link => link.user_id)
+              : [];
+          
+          const displayRecipient = beneficiaryEmail;
 
-        setMyCards(processedCards)
-      } catch (err) {
-        console.error('Failed to fetch cards:', err)
-        setError((err as Error).message || 'Impossible de charger les cartes. Veuillez réessayer plus tard.')
-      } finally {
-        setLoading(false)
+          return {
+            ...card,
+            contributors,
+            type: cardType,
+            recipient: displayRecipient,
+            userRoleOnCard: role, // Assign the current user's role for this card
+          }
+        });
+
+      const resolvedCards = await Promise.all(cardPromises);
+
+      // CRITICAL: Ensure resolvedCards is an array before filtering
+      if (!Array.isArray(resolvedCards)) {
+        console.error('Promise.all did not resolve to an array:', resolvedCards);
+        throw new Error('Erreur interne: Le traitement des cartes n\'a pas renvoyé un tableau valide.');
       }
-    }
 
+      const processedCards = resolvedCards.filter(Boolean) as CardProps[] // This is line 158
+
+      setMyCards(processedCards)
+    } catch (err) {
+      console.error('Failed to fetch cards:', err)
+      setError((err as Error).message || 'Impossible de charger les cartes. Veuillez réessayer plus tard.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchCards()
   }, [currentUser, navigate])
 
@@ -212,6 +216,46 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
     setSelectedCardIdForInvite(null)
     // Optionally re-fetch cards to update contributor count if needed
     // fetchCards(); 
+  }
+
+  const handleOpenDeleteModal = (card: CardProps) => {
+    setCardToDelete(card)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleCloseDeleteModal = () => {
+    setIsDeleteModalOpen(false)
+    setCardToDelete(null)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!cardToDelete || !currentUser) return
+
+    try {
+      const response = await fetch(API_ENDPOINTS.DELETE_ULINK_CARD, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: currentUser.userId,
+          card_id: cardToDelete._id,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Erreur lors de la suppression de la carte.')
+      }
+
+      // If deletion is successful, close modal and refresh cards
+      handleCloseDeleteModal()
+      fetchCards() // Re-fetch cards to update the list
+    } catch (err) {
+      console.error('Failed to delete card:', err)
+      setError((err as Error).message || 'Impossible de supprimer la carte. Veuillez réessayer.')
+      handleCloseDeleteModal() // Close modal even on error
+    }
   }
 
   if (!currentUser) {
@@ -273,7 +317,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {myCards.map((card) => (
-            <div key={card._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200">
+            <div key={card._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200 group relative"> {/* Added group and relative for hover effect */}
               <div className="relative h-48">
                 <img src={card.cover} alt={card.title} className="w-full h-full object-cover" />
                 <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(card.status)}`}>
@@ -284,6 +328,20 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
                 <span className="absolute top-3 right-3 px-3 py-1 rounded-full bg-indigo-500 text-white text-xs font-semibold">
                   {card.type === 'created' ? 'Créée' : card.type === 'beneficiary' ? 'Bénéficiaire' : 'Participée'}
                 </span>
+
+                {/* Delete Button - Conditional Visibility */}
+                {card.userRoleOnCard === 'admin' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent navigating to card detail
+                      handleOpenDeleteModal(card);
+                    }}
+                    className="absolute top-3 right-3 p-1 rounded-full bg-white bg-opacity-75 text-gray-400 hover:text-red-600 transition-colors duration-200 opacity-0 group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    aria-label="Supprimer la carte"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
               </div>
               <div className="p-5">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">{card.title}</h2>
@@ -317,6 +375,15 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
           onClose={handleCloseInviteModal}
           cardId={selectedCardIdForInvite}
           onInvitationsSent={handleCloseInviteModal} // Close modal and potentially refresh list
+        />
+      )}
+
+      {cardToDelete && (
+        <DeleteConfirmationModal
+          isOpen={isDeleteModalOpen}
+          onClose={handleCloseDeleteModal}
+          onConfirm={handleConfirmDelete}
+          cardTitle={cardToDelete.title}
         />
       )}
     </div>
