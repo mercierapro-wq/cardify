@@ -329,14 +329,14 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
                   {card.type === 'created' ? 'Créée' : card.type === 'beneficiary' ? 'Bénéficiaire' : 'Participée'}
                 </span>
 
-                {/* Delete Button - Conditional Visibility */}
+                {/* Delete Button - Conditional Visibility and Position */}
                 {card.userRoleOnCard === 'admin' && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent navigating to card detail
                       handleOpenDeleteModal(card);
                     }}
-                    className="absolute top-3 right-3 p-1 rounded-full bg-white bg-opacity-75 text-gray-400 hover:text-red-600 transition-colors duration-200 opacity-0 group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                    className="absolute bottom-3 right-3 p-1 rounded-full bg-white bg-opacity-75 text-gray-400 hover:text-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                     aria-label="Supprimer la carte"
                   >
                     <Trash2 className="w-5 h-5" />

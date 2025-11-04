@@ -39,7 +39,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
         </div>
 
         <p className="text-gray-700 mb-4">
-          Souhaitez vous supprimer cette carte de la liste de vos cartes ?
+          Êtes-vous sûr de vouloir supprimer cette carte de votre liste ? 
         </p>
         <p className="text-lg font-semibold text-gray-800 mb-6">
           Supprimer la carte : <span className="text-indigo-600">"{cardTitle}"</span>
