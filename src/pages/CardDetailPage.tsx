@@ -1322,8 +1322,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           isOpen={isDeleteMessageModalOpen}
           onClose={handleCloseDeleteMessageModal}
           onConfirm={handleConfirmDeleteMessage}
-          itemType="message"
-          itemName={messageToDelete.message_type === 'text' ? messageToDelete.content.substring(0, 50) + '...' : `le ${messageToDelete.message_type}`}
+          itemType="ce message"
+          itemIdentifier={messageToDelete.message_type === 'text' ? messageToDelete.content.substring(0, 50) + '...' : `le ${messageToDelete.message_type}`}
         />
       )}
     </div>

@@ -105,7 +105,14 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
         throw new Error(errorData.message || 'Erreur lors de la récupération des cartes.')
       }
 
-      const data: CardProps[] = await cardsResponse.json()
+      const data = await cardsResponse.json()
+
+      // RG2: If no cards, the endpoint returns [{"error": "no card"}]
+      if (Array.isArray(data) && data.length === 1 && (data[0] as any).error === "no card") {
+        setMyCards([]); // Set to empty array if "no card" error
+        setLoading(false);
+        return;
+      }
 
       // CRITICAL: Ensure data is an array before proceeding
       if (!Array.isArray(data)) {
@@ -308,7 +315,9 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
 
       {myCards.length === 0 ? (
         <div className="text-center py-10 bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-          <p className="text-xl text-gray-600 mb-4">Vous n'avez pas encore de cartes.</p>
+          <p className="text-xl text-gray-600 mb-4">
+            Les cartes Cardify rendent les vœux mémorables et amusants. En quelques clics, rassemblez les messages, photos et vidéos de tous vos proches sur une seule carte numérique
+          </p>
           <Link to="/create-card" className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
             <PlusCircle className="w-5 h-5 mr-2" />
             Créer votre première carte
@@ -383,7 +392,8 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
           isOpen={isDeleteModalOpen}
           onClose={handleCloseDeleteModal}
           onConfirm={handleConfirmDelete}
-          cardTitle={cardToDelete.title}
+          itemType="cette carte"
+          itemIdentifier={cardToDelete.title}
         />
       )}
     </div>
