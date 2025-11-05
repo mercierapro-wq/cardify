@@ -856,7 +856,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                 <div className="text-gray-600 text-sm mb-2">
                   <span className="font-semibold">Bénéficiaire:</span>{' '}
                   <div className="inline-flex items-center space-x-2">
-                    {isEditingBeneficiary ? (
+                    {isEditingBeneficiary && isAdmin ? ( // RG 4: Only admins can modify
                       <input
                         type="email"
                         value={beneficiaryEmailInput}
@@ -868,7 +868,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                     ) : (
                       <span>{beneficiaryEmail || (isAdmin ? 'Non défini' : 'Chargement...')}</span> // Show placeholder for admin if not set
                     )}
-                    {isAdmin && ( // RG 2: Only admins can modify
+                    {isAdmin && ( // RG 4: Only admins can modify
                       <button
                         type="button"
                         onClick={() => {
@@ -911,40 +911,44 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                   <span className="block sm:inline"> {updateError}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between mb-4">
-                <label htmlFor="moneyPotToggle" className="flex items-center cursor-pointer">
-                  <span className="mr-3 text-lg font-semibold text-gray-900">Activer la Cagnotte</span>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      id="moneyPotToggle"
-                      className="sr-only"
-                      checked={isMoneyPotActive}
-                      onChange={handleToggleMoneyPot}
-                      disabled={!isAdmin || isUpdatingCard}
-                    />
-                    <div
-                      className={`block w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${
-                        isMoneyPotActive ? 'bg-indigo-600' : 'bg-gray-300'
-                      }`}
-                    ></div>
-                    <div
-                      className={`dot absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-200 ease-in-out ${
-                        isMoneyPotActive ? 'translate-x-4' : 'translate-x-0'
-                      }`}
-                    ></div>
-                  </div>
-                </label>
-                {isUpdatingCard && <p className="text-indigo-600 text-sm ml-4">Mise à jour...</p>}
-              </div>
+              {/* RG 1: Un bénéficiaire ne peux pas modifier la cagnotte, il ne voit pas le toggle de la cagnotte */}
+              {!isBeneficiary && (
+                <div className="flex items-center justify-between mb-4">
+                  <label htmlFor="moneyPotToggle" className="flex items-center cursor-pointer">
+                    <span className="mr-3 text-lg font-semibold text-gray-900">Activer la Cagnotte</span>
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        id="moneyPotToggle"
+                        className="sr-only"
+                        checked={isMoneyPotActive}
+                        onChange={handleToggleMoneyPot}
+                        disabled={!isAdmin || isUpdatingCard}
+                      />
+                      <div
+                        className={`block w-10 h-6 rounded-full transition-colors duration-200 ease-in-out ${
+                          isMoneyPotActive ? 'bg-indigo-600' : 'bg-gray-300'
+                        }`}
+                      ></div>
+                      <div
+                        className={`dot absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform duration-200 ease-in-out ${
+                          isMoneyPotActive ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      ></div>
+                    </div>
+                  </label>
+                  {isUpdatingCard && <p className="text-indigo-600 text-sm ml-4">Mise à jour...</p>}
+                </div>
+              )}
 
-              {isMoneyPotActive && (
+              {/* RG 1: il voit uniquement le lien de la cagnotte s’il existe */}
+              {isMoneyPotActive && card.moneyPotLink && (
                 <div className="mb-4">
                   <p className="text-gray-600 text-sm mb-2">
                     <span className="font-semibold">Lien Cagnotte:</span>{' '}
                   </p>
                   <div className="flex items-center space-x-2">
-                    {isEditingMoneyPot ? (
+                    {isEditingMoneyPot && isAdmin ? ( // RG 1: Only admins can modify
                       <input
                         type="url"
                         value={moneyPotLinkInput}
@@ -963,7 +967,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                         {card.moneyPotLink}
                       </a>
                     )}
-                    {isAdmin && (
+                    {isAdmin && ( // RG 1: Only admins can modify
                       <button
                         type="button"
                         onClick={() => {
@@ -992,13 +996,16 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-gray-900">Participants</h2>
-              <button
-                onClick={handleOpenInviteModal}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              >
-                <Users className="w-5 h-5 mr-2" />
-                Inviter des Participants
-              </button>
+              {/* RG 3: Un bénéficiaire ne peut pas modifier la liste des participants */}
+              {!isBeneficiary && (
+                <button
+                  onClick={handleOpenInviteModal}
+                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                >
+                  <Users className="w-5 h-5 mr-2" />
+                  Inviter des Participants
+                </button>
+              )}
             </div>
             {loadingParticipants ? (
               <div className="flex justify-center items-center h-24">
@@ -1056,153 +1063,156 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Votre Message pour {card.title}</h2>
-            {currentUser ? (
-              <form onSubmit={handleMessageSubmit} className="flex flex-col space-y-4">
-                <div className="flex space-x-2 mb-4 p-2 border border-gray-300 rounded-lg bg-gray-50">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageType('text');
-                      setGeneratedImageContent(null); // Clear generated image when switching type
-                    }}
-                    className={`p-2 rounded-lg transition-colors duration-200 ${
-                      selectedMessageType === 'text' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                    }`}
-                    title="Message Texte"
-                  >
-                    <Type className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageType('image');
-                      setTextMessageContent(''); // Clear text when switching type
-                    }}
-                    className={`p-2 rounded-lg transition-colors duration-200 ${
-                      selectedMessageType === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                    }`}
-                    title="Message Image"
-                  >
-                    <Image className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageType('video');
-                      setGeneratedImageContent(null); // Clear generated image when switching type
-                    }}
-                    className={`p-2 rounded-lg transition-colors duration-200 ${
-                      selectedMessageType === 'video' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                    }`}
-                    title="Message Vidéo"
-                  >
-                  <Video className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMessageType('audio');
-                      setGeneratedImageContent(null); // Clear generated image when switching type
-                    }}
-                    className={`p-2 rounded-lg transition-colors duration-200 ${
-                      selectedMessageType === 'audio' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
-                    }`}
-                    title="Message Audio"
-                  >
-                    <Mic className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAIMessageModalOpen(true)}
-                    className="ml-auto p-2 rounded-lg transition-colors duration-200 bg-purple-600 text-white hover:bg-purple-700"
-                    title="Assistance IA"
-                    disabled={isSubmittingMessage}
-                  >
-                    <Sparkles className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {selectedMessageType === 'text' && (
-                  <div className="flex flex-col space-y-2">
-                    <textarea
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
-                      rows={4}
-                      placeholder="Écrivez votre message ici..."
-                      value={textMessageContent}
-                      onChange={(e) => setTextMessageContent(e.target.value)}
-                      disabled={isSubmittingMessage}
-                    ></textarea>
-                  </div>
-                )}
-
-                {selectedMessageType === 'image' && (
-                  <div className="flex flex-col space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                      onChange={(e) => {
-                        setImageFile(e.target.files ? e.target.files[0] : null);
-                        setGeneratedImageContent(null); // Clear generated image if user selects a file
+          {/* RG 2: Un bénéficiaire ne peux pas écrire de message, l’espace message n’est pas affiché */}
+          {!isBeneficiary && (
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Votre Message pour {card.title}</h2>
+              {currentUser ? (
+                <form onSubmit={handleMessageSubmit} className="flex flex-col space-y-4">
+                  <div className="flex space-x-2 mb-4 p-2 border border-gray-300 rounded-lg bg-gray-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageType('text');
+                        setGeneratedImageContent(null); // Clear generated image when switching type
                       }}
+                      className={`p-2 rounded-lg transition-colors duration-200 ${
+                        selectedMessageType === 'text' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Message Texte"
+                    >
+                      <Type className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageType('image');
+                        setTextMessageContent(''); // Clear text when switching type
+                      }}
+                      className={`p-2 rounded-lg transition-colors duration-200 ${
+                        selectedMessageType === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Message Image"
+                    >
+                      <Image className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageType('video');
+                        setGeneratedImageContent(null); // Clear generated image when switching type
+                      }}
+                      className={`p-2 rounded-lg transition-colors duration-200 ${
+                        selectedMessageType === 'video' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Message Vidéo"
+                    >
+                    <Video className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedMessageType('audio');
+                        setGeneratedImageContent(null); // Clear generated image when switching type
+                      }}
+                      className={`p-2 rounded-lg transition-colors duration-200 ${
+                        selectedMessageType === 'audio' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                      title="Message Audio"
+                    >
+                      <Mic className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAIMessageModalOpen(true)}
+                      className="ml-auto p-2 rounded-lg transition-colors duration-200 bg-purple-600 text-white hover:bg-purple-700"
+                      title="Assistance IA"
+                      disabled={isSubmittingMessage}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {selectedMessageType === 'text' && (
+                    <div className="flex flex-col space-y-2">
+                      <textarea
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+                        rows={4}
+                        placeholder="Écrivez votre message ici..."
+                        value={textMessageContent}
+                        onChange={(e) => setTextMessageContent(e.target.value)}
+                        disabled={isSubmittingMessage}
+                      ></textarea>
+                    </div>
+                  )}
+
+                  {selectedMessageType === 'image' && (
+                    <div className="flex flex-col space-y-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                        onChange={(e) => {
+                          setImageFile(e.target.files ? e.target.files[0] : null);
+                          setGeneratedImageContent(null); // Clear generated image if user selects a file
+                        }}
+                        disabled={isSubmittingMessage}
+                      />
+                      {generatedImageContent && (
+                        <div className="mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
+                          <h4 className="font-semibold text-gray-700 mb-2">Image générée (prévisualisation):</h4>
+                          <img src={generatedImageContent} alt="Generated Message Preview" className="max-w-full h-auto rounded-lg shadow-md" />
+                          <button
+                            type="button"
+                            onClick={() => setGeneratedImageContent(null)}
+                            className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
+                          >
+                            Supprimer l'image générée
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedMessageType === 'video' && (
+                    <input
+                      type="url"
+                      placeholder="Lien vers la vidéo (ex: YouTube)"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
                       disabled={isSubmittingMessage}
                     />
-                    {generatedImageContent && (
-                      <div className="mt-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
-                        <h4 className="font-semibold text-gray-700 mb-2">Image générée (prévisualisation):</h4>
-                        <img src={generatedImageContent} alt="Generated Message Preview" className="max-w-full h-auto rounded-lg shadow-md" />
-                        <button
-                          type="button"
-                          onClick={() => setGeneratedImageContent(null)}
-                          className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors duration-200"
-                        >
-                          Supprimer l'image générée
-                        </button>
-                      </div>
-                    )}
+                  )}
+
+                  {selectedMessageType === 'audio' && (
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                      onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)}
+                      disabled={isSubmittingMessage}
+                    />
+                  )}
+
+                  <div className="flex justify-end items-center space-x-2">
+                    <button
+                      type="submit"
+                      className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={isSubmitDisabled}
+                    >
+                      {isSubmittingMessage ? 'Envoi...' : 'Envoyer le message'}
+                      <Send className="w-5 h-5 ml-2" />
+                    </button>
                   </div>
-                )}
-
-                {selectedMessageType === 'video' && (
-                  <input
-                    type="url"
-                    placeholder="Lien vers la vidéo (ex: YouTube)"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                    value={videoUrl}
-                    onChange={(e) => setVideoUrl(e.target.value)}
-                    disabled={isSubmittingMessage}
-                  />
-                )}
-
-                {selectedMessageType === 'audio' && (
-                  <input
-                    type="file"
-                    accept="audio/*"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                    onChange={(e) => setAudioFile(e.target.files ? e.target.files[0] : null)}
-                    disabled={isSubmittingMessage}
-                  />
-                )}
-
-                <div className="flex justify-end items-center space-x-2">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={isSubmitDisabled}
-                  >
-                    {isSubmittingMessage ? 'Envoi...' : 'Envoyer le message'}
-                    <Send className="w-5 h-5 ml-2" />
-                  </button>
+                </form>
+              ) : (
+                <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
+                  <p className="text-lg text-gray-600">Veuillez vous connecter pour écrire un message.</p>
                 </div>
-              </form>
-            ) : (
-              <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-lg text-gray-600">Veuillez vous connecter pour écrire un message.</p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {card && (
