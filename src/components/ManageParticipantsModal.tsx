@@ -1,15 +1,47 @@
 import React, { useState, useEffect } from 'react'
-import { X, Mail, Loader2, Link as LinkIcon, Check } from 'lucide-react'
+import { X, Mail, Loader2, Link as LinkIcon, Check, Users } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import ParticipantList from './ParticipantList' // Reusing the existing ParticipantList
 
-interface InviteParticipantsModalProps {
+interface User {
+  userId: string
+  _id: string
+  firstName?: string
+  lastName?: string
+}
+
+interface UlinkCardProps {
+  _id: string
+  user_id: string
+  card_id: string
+  role: 'admin' | 'contributor' | 'beneficiary'
+  updatedAt: string
+  createdAt: string
+  firstName?: string
+  lastName?: string
+}
+
+interface ManageParticipantsModalProps {
   isOpen: boolean
   onClose: () => void
   cardId: string
-  onInvitationsSent: () => void
+  currentUser: User | null
+  isAdmin: boolean
+  participants: UlinkCardProps[]
+  onParticipantsUpdated: () => void // Callback to refresh participants in parent
+  onDeleteParticipant: (ulinkCardId: string, participantEmail: string) => void
 }
 
-const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpen, onClose, cardId, onInvitationsSent }) => {
+const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
+  isOpen,
+  onClose,
+  cardId,
+  currentUser,
+  isAdmin,
+  participants,
+  onParticipantsUpdated,
+  onDeleteParticipant,
+}) => {
   const [emailsInput, setEmailsInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,6 +79,7 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
     try {
       const results = await Promise.all(emails.map(async (email) => {
         try {
+          // 1. Insert/Check User
           let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -57,6 +90,7 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
             console.warn(`User creation/check for ${email} failed or user exists. Proceeding to link.`, await userResponse.json());
           }
 
+          // 2. Link User to Card
           const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -83,7 +117,7 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
 
       if (successfulInvites > 0) {
         setSuccessMessage(`${successfulInvites} invitation(s) envoyée(s) avec succès.`)
-        onInvitationsSent()
+        onParticipantsUpdated() // Notify parent to refresh participant list
         setEmailsInput('')
       }
       if (failedInvites.length > 0) {
@@ -104,28 +138,26 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
   const handleCopyLink = async () => {
     setCopySuccess(null) // Clear previous messages
     try {
-      // Try the modern Clipboard API first
       await navigator.clipboard.writeText(cardLink)
       setCopySuccess('Lien copié !')
     } catch (err) {
       console.error('Failed to copy link using navigator.clipboard:', err)
-      // Fallback to document.execCommand if modern API fails
       try {
         const textarea = document.createElement('textarea')
         textarea.value = cardLink
-        textarea.style.position = 'fixed' // Prevent scrolling to bottom
-        textarea.style.opacity = '0' // Make it invisible
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
         document.body.appendChild(textarea)
         textarea.select()
         document.execCommand('copy')
         document.body.removeChild(textarea)
-        setCopySuccess('Lien copié ! (via fallback)') // Indicate fallback success
+        setCopySuccess('Lien copié ! (via fallback)')
       } catch (fallbackErr) {
         console.error('Failed to copy link using document.execCommand:', fallbackErr)
         setCopySuccess('Échec de la copie.')
       }
     } finally {
-      setTimeout(() => setCopySuccess(null), 2000) // Clear message after 2 seconds
+      setTimeout(() => setCopySuccess(null), 2000)
     }
   }
 
@@ -133,11 +165,11 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-auto relative">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl mx-auto relative max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <Mail className="w-6 h-6 mr-2 text-indigo-600" />
-            Inviter des Participants
+            <Users className="w-6 h-6 mr-2 text-indigo-600" />
+            Gestion des Participants
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-6 h-6" />
@@ -185,36 +217,58 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
           )}
         </div>
 
-        <div className="mb-4">
-          <label htmlFor="emailsInput" className="block text-sm font-medium text-gray-700 mb-2">
-            Adresses e-mail (séparées par des virgules ou retours à la ligne) :
-          </label>
-          <textarea
-            id="emailsInput"
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
-            rows={5}
-            placeholder="email1@example.com, email2@example.com"
-            value={emailsInput}
-            onChange={(e) => setEmailsInput(e.target.value)}
-            disabled={isSubmitting}
-          ></textarea>
+        {/* Partie Supérieure: Ajout d'Invités */}
+        {isAdmin && ( // Only admin can invite
+          <div className="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="text-xl font-bold text-blue-800 mb-4 flex items-center">
+              <Mail className="w-5 h-5 mr-2" /> Inviter de nouveaux participants
+            </h3>
+            <div className="mb-4">
+              <label htmlFor="emailsInput" className="block text-sm font-medium text-gray-700 mb-2">
+                Adresses e-mail (séparées par des virgules ou retours à la ligne) :
+              </label>
+              <textarea
+                id="emailsInput"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y"
+                rows={4}
+                placeholder="email1@example.com, email2@example.com"
+                value={emailsInput}
+                onChange={(e) => setEmailsInput(e.target.value)}
+                disabled={isSubmitting}
+              ></textarea>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleInvite}
+                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
+                Envoyer les Invitations
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Partie Inférieure: Liste et Gestion des Participants */}
+        <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+            <Users className="w-5 h-5 mr-2" /> Liste et Gestion des Participants
+          </h3>
+          <ParticipantList
+            participants={participants.filter(p => p.role !== 'removed')}
+            currentUserEmail={currentUser?.userId}
+            isAdmin={isAdmin}
+            onDeleteParticipant={onDeleteParticipant}
+          />
         </div>
 
-        <div className="flex justify-end space-x-3">
+        <div className="flex justify-end mt-6">
           <button
             onClick={onClose}
             className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200"
-            disabled={isSubmitting}
           >
-            Annuler
-          </button>
-          <button
-            onClick={handleInvite}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
-            Envoyer les Invitations
+            Fermer
           </button>
         </div>
       </div>
@@ -222,4 +276,4 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
   )
 }
 
-export default InviteParticipantsModal
+export default ManageParticipantsModal

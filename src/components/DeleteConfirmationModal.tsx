@@ -41,8 +41,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
         </div>
 
         <p className="text-gray-700 mb-4">
-          Cette action est irréversible.
-        </p>
+          Cette action est irréversible. 
 
         <div className="flex justify-end gap-3">
           <button

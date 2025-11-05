@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users, Trash2 } from 'lucide-react' // Added Trash2 icon
+import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users, Trash2 } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 import AIMessageModal from '../components/AIMessageModal'
-import InviteParticipantsModal from '../components/InviteParticipantsModal' // Import new modal
-import ParticipantList from '../components/ParticipantList' // Import new component
+import ManageParticipantsModal from '../components/ManageParticipantsModal' // Import new unified modal
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal' // Import DeleteConfirmationModal
 
 interface User {
@@ -106,6 +105,20 @@ const YouTubeEmbed: React.FC<{ videoId: string }> = ({ videoId }) => {
   );
 };
 
+// Utility function to get initials for avatar
+const getInitials = (firstName?: string, lastName?: string, email?: string): string => {
+  if (firstName && lastName) {
+    return `${firstName[0]}${lastName[0]}`.toUpperCase();
+  }
+  if (firstName) {
+    return firstName[0].toUpperCase();
+  }
+  if (email) {
+    return email[0].toUpperCase();
+  }
+  return '?';
+};
+
 
 const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const { cardId } = useParams<{ cardId: string }>()
@@ -143,7 +156,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   // Participant states
   const [participants, setParticipants] = useState<UlinkCardProps[]>([])
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [isManageParticipantsModalOpen, setIsManageParticipantsModalOpen] = useState(false) // State for new unified modal
   const [loadingParticipants, setLoadingParticipants] = useState(true)
 
   // Message deletion states
@@ -738,11 +751,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   )
 
   // Participant Management Handlers
-  const handleOpenInviteModal = () => setIsInviteModalOpen(true)
-  const handleCloseInviteModal = () => setIsInviteModalOpen(false)
-  const handleInvitationsSent = () => {
-    fetchParticipantsAndRole() // Refresh participant list after invitations
-    handleCloseInviteModal()
+  const handleOpenManageParticipantsModal = () => setIsManageParticipantsModalOpen(true)
+  const handleCloseManageParticipantsModal = () => setIsManageParticipantsModalOpen(false)
+  const handleParticipantsUpdated = () => {
+    fetchParticipantsAndRole() // Refresh participant list after invitations/changes
+    // No need to close the modal here, it can stay open for further management
   }
 
   const handleDeleteParticipant = async (ulinkCardId: string, participantEmail: string) => {
@@ -890,6 +903,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       </div>
     )
   }
+
+  const visibleParticipants = participants.filter(p => p.role !== 'removed').slice(0, 3);
+  const remainingParticipantsCount = participants.length - visibleParticipants.length;
 
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8">
@@ -1063,32 +1079,40 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
-          {/* Participant Section */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Participants</h2>
-              {/* RG 3: Un bénéficiaire ne peut pas modifier la liste des participants */}
-              {!isBeneficiary && (
-                <button
-                  onClick={handleOpenInviteModal}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                >
-                  <Users className="w-5 h-5 mr-2" />
-                  Inviter des Participants
-                </button>
-              )}
-            </div>
-            {loadingParticipants ? (
-              <div className="flex justify-center items-center h-24">
-                <p className="text-gray-700">Chargement des participants...</p>
+          {/* Compact Participant Section */}
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-2xl font-bold text-gray-900">Participants de la Carte ({participants.length})</h2>
+              <div className="flex -space-x-2 overflow-hidden">
+                {visibleParticipants.map((participant, index) => (
+                  <div
+                    key={participant._id}
+                    className="relative w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white text-xs font-semibold ring-2 ring-white"
+                    title={`${participant.firstName || ''} ${participant.lastName || ''} (${participant.role})`}
+                    style={{ zIndex: visibleParticipants.length - index }}
+                  >
+                    {getInitials(participant.firstName, participant.lastName, participant.user_id)}
+                  </div>
+                ))}
+                {remainingParticipantsCount > 0 && (
+                  <div
+                    className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 text-xs font-semibold ring-2 ring-white"
+                    title={`${remainingParticipantsCount} autres participants`}
+                  >
+                    +{remainingParticipantsCount}
+                  </div>
+                )}
               </div>
-            ) : (
-              <ParticipantList
-                participants={participants.filter(p => p.role !== 'removed')} // Filter out 'removed' participants
-                currentUserEmail={currentUser?.userId}
-                isAdmin={isAdmin}
-                onDeleteParticipant={handleDeleteParticipant}
-              />
+            </div>
+            {/* RG 3: Un bénéficiaire ne peut pas modifier la liste des participants */}
+            {!isBeneficiary && (
+              <button
+                onClick={handleOpenManageParticipantsModal}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              >
+                <Users className="w-5 h-5 mr-2" />
+                Gestion des participants
+              </button>
             )}
           </div>
 
@@ -1310,11 +1334,15 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         />
       )}
       {card && (
-        <InviteParticipantsModal
-          isOpen={isInviteModalOpen}
-          onClose={handleCloseInviteModal}
+        <ManageParticipantsModal
+          isOpen={isManageParticipantsModalOpen}
+          onClose={handleCloseManageParticipantsModal}
           cardId={card._id}
-          onInvitationsSent={handleInvitationsSent}
+          currentUser={currentUser}
+          isAdmin={isAdmin}
+          participants={participants}
+          onParticipantsUpdated={handleParticipantsUpdated}
+          onDeleteParticipant={handleDeleteParticipant}
         />
       )}
       {messageToDelete && (
