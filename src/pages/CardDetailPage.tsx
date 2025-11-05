@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users } from 'lucide-react' // Added Users icon
+import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users, Trash2 } from 'lucide-react' // Added Trash2 icon
 import { API_ENDPOINTS } from '../config/api'
 import AIMessageModal from '../components/AIMessageModal'
 import InviteParticipantsModal from '../components/InviteParticipantsModal' // Import new modal
 import ParticipantList from '../components/ParticipantList' // Import new component
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal' // Import DeleteConfirmationModal
 
 interface User {
   userId: string
@@ -144,6 +145,10 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const [participants, setParticipants] = useState<UlinkCardProps[]>([])
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [loadingParticipants, setLoadingParticipants] = useState(true)
+
+  // Message deletion states
+  const [isDeleteMessageModalOpen, setIsDeleteMessageModalOpen] = useState(false)
+  const [messageToDelete, setMessageToDelete] = useState<MessageProps | null>(null)
 
 
   // User role on this card
@@ -771,6 +776,62 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     }
   }
 
+  // Message Deletion Handlers
+  const handleOpenDeleteMessageModal = (message: MessageProps) => {
+    setMessageToDelete(message)
+    setIsDeleteMessageModalOpen(true)
+  }
+
+  const handleCloseDeleteMessageModal = () => {
+    setIsDeleteMessageModalOpen(false)
+    setMessageToDelete(null)
+  }
+
+  const handleConfirmDeleteMessage = async () => {
+    if (!messageToDelete || !currentUser || !cardId) {
+      setMessageError("Impossible de supprimer le message : informations manquantes.")
+      return
+    }
+
+    // RG 1: Check if current user is the author or an admin
+    const isAuthor = currentUser.userId === messageToDelete.user_id
+    if (!isAuthor && !isAdmin) {
+      setMessageError("Vous n'avez pas la permission de supprimer ce message.")
+      return
+    }
+
+    setIsSubmittingMessage(true) // Use this to disable buttons during deletion
+    setMessageError(null)
+
+    try {
+      const response = await fetch(API_ENDPOINTS.DELETE_MESSAGE, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ _id: messageToDelete._id }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Erreur lors de la suppression du message.')
+      }
+
+      const data = await response.json()
+      if (data && data.length > 0 && data[0].deletedCount === 1) {
+        setMessages(prevMessages => prevMessages.filter(msg => msg._id !== messageToDelete._id))
+        handleCloseDeleteMessageModal()
+      } else {
+        throw new Error("La suppression du message n'a pas été confirmée par le serveur.")
+      }
+    } catch (err) {
+      console.error('Failed to delete message:', err)
+      setMessageError((err as Error).message || 'Impossible de supprimer le message. Veuillez réessayer.')
+    } finally {
+      setIsSubmittingMessage(false)
+    }
+  }
+
 
   if (loadingCard || loadingParticipants) {
     return (
@@ -1045,7 +1106,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
               {messages.map((message) => (
                 <div 
                   key={message._id} 
-                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex-grow flex-shrink basis-auto min-w-[280px] max-w-sm"
+                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex-grow flex-shrink basis-auto min-w-[280px] max-w-sm relative group" // Added 'relative group' for hover effect
                 >
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-indigo-600">
@@ -1056,6 +1117,18 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                     <span className="text-sm text-gray-500">{new Date(message.createdAt).toLocaleDateString()}</span>
                   </div>
                   {renderMessageContent(message)}
+
+                  {/* RG 1 & RG 2 - UI: Delete icon */}
+                  {(currentUser?.userId === message.user_id || isAdmin) && (
+                    <button
+                      onClick={() => handleOpenDeleteMessageModal(message)}
+                      className="absolute bottom-2 right-2 p-1 rounded-full text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                      title="Supprimer le message"
+                      disabled={isSubmittingMessage}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -1230,6 +1303,15 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           onClose={handleCloseInviteModal}
           cardId={card._id}
           onInvitationsSent={handleInvitationsSent}
+        />
+      )}
+      {messageToDelete && (
+        <DeleteConfirmationModal
+          isOpen={isDeleteMessageModalOpen}
+          onClose={handleCloseDeleteMessageModal}
+          onConfirm={handleConfirmDeleteMessage}
+          itemType="message"
+          itemName={messageToDelete.message_type === 'text' ? messageToDelete.content.substring(0, 50) + '...' : `le ${messageToDelete.message_type}`}
         />
       )}
     </div>

@@ -6,6 +6,7 @@ export const API_ENDPOINTS = {
   UPDATE_CARD: `${API_BASE_URL}/webhook/UpdateCard`,
   INSERT_MESSAGE: `${API_BASE_URL}/webhook/InsertMessage`,
   READ_MESSAGES: `${API_BASE_URL}/webhook/ReadMessages`,
+  DELETE_MESSAGE: `${API_BASE_URL}/webhook/DeleteMessage`, // New endpoint for deleting messages
   GET_USER: `${API_BASE_URL}/webhook/GetUser`, // Endpoint for user login
   INSERT_USER: `${API_BASE_URL}/webhook/InsertUser`, // New endpoint for user registration
   INSERT_ULINK_CARD: `${API_BASE_URL}/webhook/InsertUlinkCard`, // New endpoint for linking users to cards

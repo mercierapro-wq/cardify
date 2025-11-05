@@ -5,14 +5,16 @@ interface DeleteConfirmationModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void
-  cardTitle: string
+  itemType: string // e.g., "carte", "message"
+  itemName: string // e.g., card title, message content snippet
 }
 
 const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  cardTitle,
+  itemType,
+  itemName,
 }) => {
   const cancelButtonRef = useRef<HTMLButtonElement>(null)
 
@@ -31,7 +33,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center">
             <Trash2 className="w-6 h-6 mr-2 text-red-600" />
-            Êtes-vous sûr de vouloir supprimer cette carte ?
+            Êtes-vous sûr de vouloir supprimer ce {itemType} ?
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-6 h-6" />
@@ -39,10 +41,10 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
         </div>
 
         <p className="text-gray-700 mb-4">
-          Êtes-vous sûr de vouloir supprimer cette carte de votre liste ? 
+          Cette action est irréversible. Êtes-vous certain de vouloir supprimer le {itemType} :
         </p>
         <p className="text-lg font-semibold text-gray-800 mb-6">
-          Supprimer la carte : <span className="text-indigo-600">"{cardTitle}"</span>
+          <span className="text-indigo-600">"{itemName}"</span>
         </p>
 
         <div className="flex justify-end gap-3">
