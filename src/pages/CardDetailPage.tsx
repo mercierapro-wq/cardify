@@ -321,8 +321,18 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           throw new Error(errorData.message || 'Erreur lors de la récupération des messages.')
         }
 
-        const data: MessageProps[] = await response.json()
-        setMessages(data)
+        const data = await response.json() // Get raw data first
+
+        // RG2: If no messages, the endpoint returns [{"error": "No Message"}]
+        if (Array.isArray(data) && data.length === 1 && (data[0] as any).error === "No Message") {
+          setMessages([]); // Set to empty array if "No Message" error
+        } else if (Array.isArray(data)) {
+          setMessages(data as MessageProps[]); // Otherwise, set actual messages
+        } else {
+          // Handle unexpected data format, maybe log an error or set messages to empty
+          console.warn("Unexpected response format from ReadMessages:", data);
+          setMessages([]);
+        }
 
       } catch (err) {
         console.error('Failed to fetch messages:', err)
@@ -1097,9 +1107,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
             <div className="flex justify-center items-center h-24">
               <p className="text-gray-700">Chargement des messages...</p>
             </div>
-          ) : messages.length === 0 ? (
+          ) : messages.length === 0 ? ( // RG1: Display info message if no messages
             <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
-              <p className="text-lg text-gray-600">Il n'y a pas encore de message sur cette carte.</p>
+              <p className="text-lg text-gray-600">
+                Votre carte est magnifique et attend ses premiers vœux. Partagez le lien d'invitation pour que vos amis et votre famille commencent à la remplir de messages, photos et vidéos !
+              </p>
             </div>
           ) : (
             <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
