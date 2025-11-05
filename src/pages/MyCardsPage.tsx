@@ -335,7 +335,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
                   {card.status === 'upcoming' && 'À venir'}
                 </span>
                 <span className="absolute top-3 right-3 px-3 py-1 rounded-full bg-indigo-500 text-white text-xs font-semibold">
-                  {card.type === 'created' ? 'Créée' : card.type === 'beneficiary' ? 'Bénéficiaire' : 'Participée'}
+                  {card.type === 'beneficiary' ? 'Bénéficiaire' : 'Participant'}
                 </span>
 
                 {/* Delete Button - Conditional Visibility and Position */}
