@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://01a0998fe7a0.ngrok-free.app'
+export const API_BASE_URL = 'https://bd30838733bd.ngrok-free.app'
 
 export const API_ENDPOINTS = {
   INSERT_CARD: `${API_BASE_URL}/webhook/InsertCard`,

@@ -991,7 +991,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
             </div>
 
             <div className="md:w-1/2">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Cagnotte</h2>
               {updateError && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
                   <strong className="font-bold">Erreur:</strong>
@@ -1029,7 +1028,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
               )}
 
               {/* RG 1: il voit uniquement le lien de la cagnotte s’il existe */}
-              {isMoneyPotActive && card.moneyPotLink && (
+              {isMoneyPotActive && ( /* Changed condition from `isMoneyPotActive && card.moneyPotLink` to `isMoneyPotActive` */
                 <div className="mb-4">
                   <p className="text-gray-600 text-sm mb-2">
                     <span className="font-semibold">Lien Cagnotte:</span>{' '}
@@ -1045,14 +1044,18 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                         disabled={isUpdatingCard}
                       />
                     ) : (
-                      <a
-                        href={card.moneyPotLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:underline truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg"
-                      >
-                        {card.moneyPotLink}
-                      </a>
+                      card.moneyPotLink ? ( /* Added conditional rendering for the link itself */
+                        <a
+                          href={card.moneyPotLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-600 hover:underline truncate max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg"
+                        >
+                          {card.moneyPotLink}
+                        </a>
+                      ) : (
+                        <span className="text-gray-500">Aucun lien défini</span> /* Placeholder if no link */
+                      )
                     )}
                     {isAdmin && ( // RG 1: Only admins can modify
                       <button
