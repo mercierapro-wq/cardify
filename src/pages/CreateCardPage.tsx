@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Image, Mail, MessageSquareText, Save, XCircle, DollarSign, UserPlus } from 'lucide-react' // Added UserPlus icon
+import { Image, Mail, Save, XCircle, DollarSign, UserPlus, Sparkles, Upload } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import AIMessageModal from '../components/AIMessageModal' // Import AIMessageModal
 
 interface User {
   userId: string
@@ -16,12 +17,15 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [coverImageUrl, setCoverImageUrl] = useState('')
+  const [selectedCoverImageFile, setSelectedCoverImageFile] = useState<File | null>(null) // For uploaded image
+  const [generatedCoverImageBase64, setGeneratedCoverImageBase64] = useState<string | null>(null) // For AI generated image
   const [sharedToEmails, setSharedToEmails] = useState('')
-  const [beneficiaryEmail, setBeneficiaryEmail] = useState('') // New state for beneficiary
+  const [beneficiaryEmail, setBeneficiaryEmail] = useState('')
   const [moneyPotLink, setMoneyPotLink] = useState('')
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [isAIMessageModalOpen, setIsAIMessageModalOpen] = useState(false) // State for AI modal
+  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for file input
 
   // Redirect if not logged in
   useEffect(() => {
@@ -29,6 +33,15 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
       navigate('/my-cards') // Redirect to my-cards which will prompt login
     }
   }, [currentUser, navigate])
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,10 +53,50 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
       return
     }
 
+    // --- Validation ---
     if (!title.trim()) {
       setErrorMessage('Le titre de la carte ne peut pas être vide.')
       return
     }
+    if (title.trim().length > 100) { // Updated max length
+      setErrorMessage('Le titre de la carte ne peut pas dépasser 100 caractères.')
+      return
+    }
+
+    if (!description.trim()) {
+      setErrorMessage('La description de la carte ne peut pas être vide.')
+      return
+    }
+    if (description.trim().length > 1000) { // Updated max length
+      setErrorMessage('La description de la carte ne peut pas dépasser 1000 caractères.')
+      return
+    }
+
+    let coverImageBase64: string | null = null
+    if (generatedCoverImageBase64) {
+      coverImageBase64 = generatedCoverImageBase64
+    } else if (selectedCoverImageFile) {
+      if (selectedCoverImageFile.size > 2 * 1024 * 1024) { // 2MB limit
+        setErrorMessage('L\'image de couverture ne doit pas dépasser 2 Mo.')
+        return
+      }
+      try {
+        coverImageBase64 = await convertFileToBase64(selectedCoverImageFile)
+      } catch (error) {
+        setErrorMessage('Erreur lors de la conversion de l\'image de couverture.')
+        console.error('Image conversion error:', error)
+        return
+      }
+    } else {
+      setErrorMessage('Veuillez sélectionner ou générer une image de couverture.')
+      return
+    }
+
+    if (beneficiaryEmail.trim() && beneficiaryEmail.trim() === currentUser.userId) {
+      setErrorMessage('Le bénéficiaire ne peut pas être le créateur de la carte.')
+      return
+    }
+    // --- End Validation ---
 
     const now = new Date().toISOString()
 
@@ -57,25 +110,21 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
       .filter(Boolean)
       .forEach((email) => allParticipantsEmails.add(email))
 
-    // Add beneficiary email if provided and different from creator
-    if (beneficiaryEmail.trim() && beneficiaryEmail.trim() !== currentUser.userId) {
+    // Add beneficiary email if provided
+    if (beneficiaryEmail.trim()) {
       allParticipantsEmails.add(beneficiaryEmail.trim())
-    } else if (beneficiaryEmail.trim() === currentUser.userId) {
-      setErrorMessage('Le bénéficiaire ne peut pas être le créateur de la carte.')
-      return
     }
 
     const cardData = {
       title: title.trim(),
       description: description.trim(),
-      cover: coverImageUrl.trim(),
-      messages: '', // This field is not used for actual messages, kept for schema compatibility
-      // shareAt: Array.from(allParticipantsEmails).join(','), // REMOVED: No longer used
-      createdBy: currentUser.userId, // Use logged-in user's email
+      cover: coverImageBase64, // Use base64 image
+      messages: '', // This field is not part of the form anymore, but still sent to backend
+      createdBy: currentUser.userId, // This field is not part of the form anymore, but still sent to backend
       updatedAt: now,
       createdAt: now,
       moneyPotLink: moneyPotLink.trim(),
-      status: 'draft', // New: Initialize card status as 'draft'
+      status: 'draft',
     }
 
     try {
@@ -94,14 +143,14 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
       }
 
       const cardResult = await cardResponse.json()
-      const cardId = cardResult.card_id // Correctly retrieve card_id from the API response
+      const cardId = cardResult.card_id
 
       if (!cardId) {
         throw new Error("Impossible de récupérer l'ID de la carte après la création.")
       }
 
-      // 2. Link users to the card with appropriate roles
-      const linkingPromises = Array.from(allParticipantsEmails).map(async (email) => {
+      // 2. Link users to the card with appropriate roles and send emails
+      const linkingResults = await Promise.all(Array.from(allParticipantsEmails).map(async (email) => {
         let role: 'admin' | 'contributor' | 'beneficiary'
         if (email === currentUser.userId) {
           role = 'admin'
@@ -119,24 +168,54 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
           createdAt: now,
         }
 
-        const ulinkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(ulinkCardData),
-        })
+        try {
+          const ulinkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(ulinkCardData),
+          })
 
-        if (!ulinkResponse.ok) {
-          const errorData = await ulinkResponse.json()
-          console.error(`Erreur lors de la liaison de l'utilisateur ${email} à la carte:`, errorData)
-          // Don't throw here to allow other links to proceed, but log the error
-          return { success: false, email, error: errorData.message || 'Erreur inconnue' }
+          if (!ulinkResponse.ok) {
+            const errorData = await ulinkResponse.json()
+            console.error(`Erreur lors de la liaison de l'utilisateur ${email} à la carte:`, errorData)
+            return { success: false, email, error: errorData.message || 'Erreur inconnue' }
+          }
+
+          // Send email notification to contributors (not to admin creator or beneficiary)
+          if (email !== currentUser.userId && email !== beneficiaryEmail.trim()) {
+            const cardLink = `${window.location.origin}/card/${cardId}`;
+            const emailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                send_to: email,
+                send_content: `Vous êtes invités à participer à la carte : ${description.trim()}`,
+                send_subject: `[CARDIFY] Vous êtes invités à participer à la carte : ${title.trim()}`,
+                card_link: cardLink,
+              }),
+            });
+
+            if (!emailResponse.ok) {
+              const emailErrorData = await emailResponse.json();
+              console.warn(`Failed to send email to ${email}:`, emailErrorData);
+              return { success: true, email, message: 'Participant ajouté, mais échec de l\'envoi de l\'e-mail.' };
+            }
+            const emailResult = await emailResponse.json();
+            if (emailResult && emailResult.labelIds && emailResult.labelIds.includes('SENT')) {
+              return { success: true, email };
+            } else {
+              console.warn(`Email to ${email} not marked as SENT:`, emailResult);
+              return { success: true, email, message: 'Participant ajouté, mais e-mail non confirmé.' };
+            }
+          }
+          return { success: true, email } // Creator or no email needed
+        } catch (innerError) {
+          console.error(`Failed to link or send email to ${email}:`, innerError)
+          return { success: false, email, error: (innerError as Error).message || 'Erreur inconnue' }
         }
-        return { success: true, email }
-      })
-
-      const linkingResults = await Promise.all(linkingPromises)
+      }))
 
       const failedLinks = linkingResults.filter(result => !result.success)
       if (failedLinks.length > 0) {
@@ -158,10 +237,25 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
     navigate('/my-cards')
   }
 
-  const isSaveButtonDisabled = !title.trim() || !currentUser // Disable if not logged in
+  const handleInsertAIImage = (type: 'image', content: string) => {
+    if (type === 'image') {
+      setGeneratedCoverImageBase64(content)
+      setSelectedCoverImageFile(null) // Clear manual selection if AI image is used
+    }
+    setIsAIMessageModalOpen(false)
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files ? e.target.files[0] : null;
+    setSelectedCoverImageFile(file);
+    setGeneratedCoverImageBase64(null); // Clear AI generated image if user selects a file
+  };
+
+  const displayCoverImage = generatedCoverImageBase64 || (selectedCoverImageFile && URL.createObjectURL(selectedCoverImageFile));
+
+  const isSaveButtonDisabled = !title.trim() || !description.trim() || (!selectedCoverImageFile && !generatedCoverImageBase64) || !currentUser
 
   if (!currentUser) {
-    // Optionally render a loading state or a message while redirecting
     return (
       <div className="flex justify-center items-center h-64">
         <p className="text-lg text-gray-700">Redirection vers la page de connexion...</p>
@@ -185,13 +279,15 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
             placeholder="Ex: Joyeux Anniversaire Sophie !"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            maxLength={100} // Updated max length
             required
           />
+          <p className="mt-1 text-xs text-gray-500 text-right">{title.length}/100 caractères</p>
         </div>
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description
+            Description <span className="text-red-500">*</span>
           </label>
           <textarea
             id="description"
@@ -200,30 +296,59 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
             placeholder="Ajoutez une petite description pour la carte..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            maxLength={1000} // Updated max length
+            required
           ></textarea>
+          <p className="mt-1 text-xs text-gray-500 text-right">{description.length}/1000 caractères</p>
         </div>
 
         <div>
           <label htmlFor="coverImage" className="block text-sm font-medium text-gray-700 mb-1">
-            Image de couverture (URL)
+            Image de couverture <span className="text-red-500">*</span>
           </label>
-          <div className="mt-1 flex rounded-md shadow-sm">
-            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-              <Image className="w-5 h-5" />
-            </span>
+          <div className="mt-1 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setIsAIMessageModalOpen(true)}
+              className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors duration-200"
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              Générer avec l'IA
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+            >
+              <Upload className="w-5 h-5 mr-2" />
+              Importer une image
+            </button>
             <input
-              type="url"
+              type="file"
               id="coverImage"
-              className="flex-1 block w-full px-4 py-2 border border-gray-300 rounded-r-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              placeholder="Ex: https://images.unsplash.com/photo-..."
-              value={coverImageUrl}
-              onChange={(e) => setCoverImageUrl(e.target.value)}
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
             />
           </div>
-          {coverImageUrl && (
+          <p className="mt-2 text-xs text-gray-500">Taille maximale: 2 Mo.</p>
+
+          {displayCoverImage && (
             <div className="mt-4">
               <p className="text-sm text-gray-600 mb-2">Aperçu de l'image de couverture:</p>
-              <img src={coverImageUrl} alt="Aperçu de la couverture" className="max-h-48 w-auto rounded-md shadow-md object-cover" />
+              <img src={displayCoverImage} alt="Aperçu de la couverture" className="max-h-48 w-auto rounded-md shadow-md object-cover" />
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCoverImageFile(null);
+                  setGeneratedCoverImageBase64(null);
+                  if (fileInputRef.current) fileInputRef.current.value = ''; // Clear file input
+                }}
+                className="mt-2 px-3 py-1 bg-red-500 text-white text-xs rounded-md hover:bg-red-600 transition-colors duration-200"
+              >
+                Supprimer l'image
+              </button>
             </div>
           )}
         </div>
@@ -250,7 +375,7 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
 
         <div>
           <label htmlFor="beneficiaryEmail" className="block text-sm font-medium text-gray-700 mb-1">
-            Email du Bénéficiaire (facultatif)
+            Email du Bénéficiaire
           </label>
           <div className="mt-1 flex rounded-md shadow-sm">
             <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
@@ -270,7 +395,7 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
 
         <div>
           <label htmlFor="sharedTo" className="block text-sm font-medium text-gray-700 mb-1">
-            Partagé à (adresses email séparées par des virgules, facultatif)
+            Partagé à 
           </label>
           <div className="mt-1 flex rounded-md shadow-sm">
             <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
@@ -286,37 +411,6 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
             ></textarea>
           </div>
           <p className="mt-2 text-xs text-gray-500">Séparez les adresses email par des virgules. Ces personnes pourront contribuer à la carte.</p>
-        </div>
-
-        <div>
-          <label htmlFor="messages" className="block text-sm font-medium text-gray-700 mb-1">
-            Messages (à venir plus tard)
-          </label>
-          <div className="mt-1 flex rounded-md shadow-sm">
-            <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-              <MessageSquareText className="w-5 h-5" />
-            </span>
-            <input
-              type="text"
-              id="messages"
-              className="flex-1 block w-full px-4 py-2 border border-gray-300 rounded-r-md bg-gray-50 text-gray-500 sm:text-sm cursor-not-allowed"
-              value="Fonctionnalité à implémenter"
-              disabled
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="createdBy" className="block text-sm font-medium text-gray-700 mb-1">
-            Créée par
-          </label>
-          <input
-            type="email"
-            id="createdBy"
-            className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-100 text-gray-600 sm:text-sm cursor-not-allowed"
-            value={currentUser?.userId || ''} // Display current user's email
-            disabled
-          />
         </div>
 
         {errorMessage && (
@@ -355,6 +449,16 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
           </div>
         )}
       </form>
+
+      {/* AI Message Modal for Cover Image */}
+      <AIMessageModal
+        isOpen={isAIMessageModalOpen}
+        onClose={() => setIsAIMessageModalOpen(false)}
+        onInsertContent={handleInsertAIImage}
+        cardTitle={title || "Nouvelle carte"}
+        cardDescription={description || "Description de la carte"}
+        imageOnlyMode={true} 
+      />
     </div>
   )
 }

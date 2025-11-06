@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, Sparkles, Type, Image, Video, Mic, Loader2, Play, Lightbulb } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 
@@ -8,6 +8,7 @@ interface AIMessageModalProps {
   onInsertContent: (type: 'text' | 'image' | 'video' | 'audio', content: string) => void
   cardTitle: string
   cardDescription: string
+  imageOnlyMode?: boolean // New prop to indicate image-only mode
 }
 
 // Utility function to extract YouTube video ID (duplicated for self-containment, could be shared)
@@ -63,7 +64,7 @@ const YouTubeEmbed: React.FC<{ videoId: string }> = ({ videoId }) => {
 };
 
 
-const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInsertContent, cardTitle, cardDescription }) => {
+const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInsertContent, cardTitle, cardDescription, imageOnlyMode = false }) => {
   const [aiPrompt, setAiPrompt] = useState('')
   const [generatingType, setGeneratingType] = useState<'text' | 'image' | 'video' | 'audio' | 'prompt' | null>(null)
   const [generatedText, setGeneratedText] = useState<string | null>(null)
@@ -71,7 +72,17 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null)
   const [generatedAudioUrl, setGeneratedAudioUrl] = useState<string | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
-  const [activeContentType, setActiveContentType] = useState<'text' | 'image' | null>(null); // New state for active content type
+  const [activeContentType, setActiveContentType] = useState<'text' | 'image' | null>(imageOnlyMode ? 'image' : null); // Initialize with 'image' if imageOnlyMode
+
+  useEffect(() => {
+    if (isOpen && imageOnlyMode) {
+      setActiveContentType('image');
+      resetState(); // Reset state when modal opens in imageOnlyMode
+    } else if (isOpen && !imageOnlyMode) {
+      setActiveContentType(null); // Reset if not in imageOnlyMode
+      resetState();
+    }
+  }, [isOpen, imageOnlyMode]);
 
   const resetState = () => {
     setAiPrompt('')
@@ -85,7 +96,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
 
   const handleClose = () => {
     resetState()
-    setActiveContentType(null); // Reset active content type on close
+    setActiveContentType(imageOnlyMode ? 'image' : null); // Reset active content type on close, keep 'image' if imageOnlyMode
     onClose()
   }
 
@@ -244,31 +255,33 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
           </div>
         )}
 
-        {/* Sélecteur Initial (B) */}
-        <div className="flex gap-4 mb-6">
-          <button
-            type="button"
-            onClick={() => handleSelectContentType('text')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
-              ${activeContentType === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
-              `}
-            disabled={!!generatingType}
-          >
-            <Type className="w-5 h-5 mr-2" />
-            ✍️ Message Texte
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSelectContentType('image')}
-            className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
-              ${activeContentType === 'image' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
-              `}
-            disabled={!!generatingType}
-          >
-            <Image className="w-5 h-5 mr-2" />
-            🖼️ Image Créative
-          </button>
-        </div>
+        {/* Sélecteur Initial (B) - Hidden if imageOnlyMode is true */}
+        {!imageOnlyMode && (
+          <div className="flex gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => handleSelectContentType('text')}
+              className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
+                ${activeContentType === 'text' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                `}
+              disabled={!!generatingType}
+            >
+              <Type className="w-5 h-5 mr-2" />
+              ✍️ Message Texte
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectContentType('image')}
+              className={`flex items-center px-4 py-2 rounded-lg shadow-sm transition-colors duration-200
+                ${activeContentType === 'image' ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                `}
+              disabled={!!generatingType}
+            >
+              <Image className="w-5 h-5 mr-2" />
+              🖼️ Image Créative
+            </button>
+          </div>
+        )}
 
         {/* Affichage Conditionnel du champ de description (A), bouton d'aide (A.2) et zone de résultat (C) */}
         {activeContentType && (
