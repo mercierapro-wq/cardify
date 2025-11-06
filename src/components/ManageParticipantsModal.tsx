@@ -25,6 +25,8 @@ interface ManageParticipantsModalProps {
   isOpen: boolean
   onClose: () => void
   cardId: string
+  cardTitle: string // Added cardTitle
+  cardDescription: string // Added cardDescription
   currentUser: User | null
   isAdmin: boolean
   participants: UlinkCardProps[]
@@ -36,6 +38,8 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
   isOpen,
   onClose,
   cardId,
+  cardTitle, // Destructure cardTitle
+  cardDescription, // Destructure cardDescription
   currentUser,
   isAdmin,
   participants,
@@ -75,64 +79,113 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
     }
 
     setIsSubmitting(true)
+    const existingParticipantEmails = new Set(participants.map(p => p.user_id));
 
-    try {
-      const results = await Promise.all(emails.map(async (email) => {
-        try {
-          // 1. Insert/Check User
-          let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email }),
-          })
+    const results = await Promise.all(emails.map(async (email) => {
+      // RG 1: Check if participant is already present
+      if (existingParticipantEmails.has(email)) {
+        return { email, status: 'skipped', message: 'Ce participant est déjà dans la liste' };
+      }
 
-          if (!userResponse.ok) {
-            console.warn(`User creation/check for ${email} failed or user exists. Proceeding to link.`, await userResponse.json());
-          }
+      try {
+        // 1. Insert/Check User
+        let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email }),
+        })
 
-          // 2. Link User to Card
-          const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              card_id: cardId,
-              user_id: email,
-              role: 'contributor',
-            }),
-          })
-
-          if (!linkResponse.ok) {
-            const errorData = await linkResponse.json()
-            throw new Error(errorData.message || `Erreur lors de l'invitation de ${email}.`)
-          }
-          return { email, status: 'success' }
-        } catch (innerError) {
-          console.error(`Failed to invite ${email}:`, innerError)
-          return { email, status: 'error', message: (innerError as Error).message }
+        if (!userResponse.ok) {
+          console.warn(`User creation/check for ${email} failed or user exists. Proceeding to link.`, await userResponse.json());
         }
-      }))
 
-      const successfulInvites = results.filter(r => r.status === 'success').length
-      const failedInvites = results.filter(r => r.status === 'error')
+        // 2. Link User to Card
+        const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            card_id: cardId,
+            user_id: email,
+            role: 'contributor',
+          }),
+        })
 
-      if (successfulInvites > 0) {
-        setSuccessMessage(`${successfulInvites} invitation(s) envoyée(s) avec succès.`)
-        onParticipantsUpdated() // Notify parent to refresh participant list
-        setEmailsInput('')
-      }
-      if (failedInvites.length > 0) {
-        setError(`Échec de l'envoi pour ${failedInvites.map(f => f.email).join(', ')}.`)
-      }
-      if (successfulInvites === 0 && failedInvites.length > 0) {
-        setError("Aucune invitation n'a pu être envoyée.")
-      }
+        if (!linkResponse.ok) {
+          const errorData = await linkResponse.json()
+          throw new Error(errorData.message || `Erreur lors de l'invitation de ${email}.`)
+        }
 
-    } catch (err) {
-      console.error('Overall invitation process failed:', err)
-      setError((err as Error).message || "Une erreur inattendue est survenue lors de l'envoi des invitations.")
-    } finally {
-      setIsSubmitting(false)
+        // 3. RG 2: Send email notification
+        const emailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            send_to: email,
+            send_content: `Vous êtes invités à participer à la carte : ${cardDescription}`,
+            send_subject: `[CARDIFY] Vous êtes invités à participer à la carte : ${cardTitle}`,
+            card_link: cardLink,
+          }),
+        });
+
+        if (!emailResponse.ok) {
+          const emailErrorData = await emailResponse.json();
+          console.warn(`Failed to send email to ${email}:`, emailErrorData);
+          // Don't throw error here, just log and continue, as linking was successful
+          return { email, status: 'success_no_email', message: 'Participant ajouté, mais échec de l\'envoi de l\'e-mail.' };
+        }
+
+        const emailResult = await emailResponse.json();
+        if (emailResult && emailResult.labelIds && emailResult.labelIds.includes('SENT')) {
+          return { email, status: 'success' };
+        } else {
+          console.warn(`Email to ${email} not marked as SENT:`, emailResult);
+          return { email, status: 'success_no_email', message: 'Participant ajouté, mais e-mail non confirmé.' };
+        }
+
+      } catch (innerError) {
+        console.error(`Failed to invite ${email}:`, innerError)
+        return { email, status: 'error', message: (innerError as Error).message }
+      }
+    }))
+
+    const successfulInvites = results.filter(r => r.status === 'success').length
+    const successfulInvitesNoEmail = results.filter(r => r.status === 'success_no_email').length
+    const failedInvites = results.filter(r => r.status === 'error')
+    const skippedInvites = results.filter(r => r.status === 'skipped')
+
+    let finalSuccessMessages: string[] = [];
+    let finalErrorMessages: string[] = [];
+
+    if (successfulInvites > 0) {
+      finalSuccessMessages.push(`${successfulInvites} invitation(s) envoyée(s) avec succès (lien et e-mail).`);
+      onParticipantsUpdated(); // Notify parent to refresh participant list
+      setEmailsInput('');
     }
+    if (successfulInvitesNoEmail > 0) {
+      finalSuccessMessages.push(`${successfulInvitesNoEmail} participant(s) ajouté(s), mais l'e-mail n'a pas pu être envoyé.`);
+      onParticipantsUpdated(); // Notify parent to refresh participant list
+      setEmailsInput('');
+    }
+    if (skippedInvites.length > 0) {
+      // Updated message as per user request
+      finalErrorMessages.push("Ce participant est déjà dans la liste.");
+    }
+    if (failedInvites.length > 0) {
+      finalErrorMessages.push(`Échec de l'envoi pour ${failedInvites.map(f => f.email).join(', ')}. Raisons: ${failedInvites.map(f => f.message).join('; ')}`);
+    }
+
+    if (finalSuccessMessages.length > 0) {
+      setSuccessMessage(finalSuccessMessages.join(' '));
+    }
+    if (finalErrorMessages.length > 0) {
+      setError(finalErrorMessages.join(' '));
+    }
+    if (successfulInvites === 0 && successfulInvitesNoEmail === 0 && failedInvites.length > 0 && skippedInvites.length === 0) {
+      setError("Aucune invitation n'a pu être envoyée.");
+    }
+
+
+    setIsSubmitting(false)
   }
 
   const handleCopyLink = async () => {

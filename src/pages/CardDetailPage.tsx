@@ -468,8 +468,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         },
         body: JSON.stringify({
           send_to: beneficiaryEmail,
-          send_content: card.title,
-          send_subject: card.description,
+          send_content: card.description,
+          send_subject: card.title,
           card_link: cardLink,
         }),
       });
@@ -1341,6 +1341,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           isOpen={isManageParticipantsModalOpen}
           onClose={handleCloseManageParticipantsModal}
           cardId={card._id}
+          cardTitle={card.title}
+          cardDescription={card.description} 
           currentUser={currentUser}
           isAdmin={isAdmin}
           participants={participants}
