@@ -1,17 +1,20 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Home, Gift, PlusCircle, LogIn, LogOut, User } from 'lucide-react'
+import { Home, Gift, PlusCircle, LogIn } from 'lucide-react'
 import LoginModal from './LoginModal'
+import UserMenu from './UserMenu' // Import the new UserMenu component
 
 interface User {
   userId: string
   _id: string
+  firstName?: string // Added firstName
+  lastName?: string // Added lastName
 }
 
 interface LayoutProps {
   children: React.ReactNode
   currentUser: User | null
-  onLoginSuccess: (userId: string, _id: string) => void
+  onLoginSuccess: (userId: string, _id: string, firstName?: string, lastName?: string) => void
   onLogout: () => void
 }
 
@@ -53,17 +56,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
           </div>
           <div className="flex items-center space-x-4">
             {currentUser ? (
-              <>
-                <span className="text-gray-700 flex items-center">
-                  <User className="w-5 h-5 mr-2" /> {currentUser.userId}
-                </span>
-                <button
-                  onClick={onLogout}
-                  className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md shadow-sm hover:bg-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                >
-                  <LogOut className="w-5 h-5 mr-2" /> Déconnexion
-                </button>
-              </>
+              <UserMenu currentUser={currentUser} onLogout={onLogout} /> // Use the new UserMenu component
             ) : (
               <button
                 onClick={openLoginModal}
