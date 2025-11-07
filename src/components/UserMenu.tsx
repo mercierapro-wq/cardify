@@ -75,7 +75,7 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout }) => {
             <div className="text-gray-500 truncate">{currentUser.userId}</div>
           </div>
           <Link
-            to="/settings" // Placeholder for settings page
+            to="/settings"
             className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             onClick={closeDropdown}
           >

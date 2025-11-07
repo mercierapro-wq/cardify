@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast' // Import Toaster
 import Layout from './components/Layout'
 import HomePage from './pages/HomePage'
 import MyCardsPage from './pages/MyCardsPage'
 import CreateCardPage from './pages/CreateCardPage'
 import CardDetailPage from './pages/CardDetailPage'
+import AccountSettingsPage from './pages/AccountSettingsPage' // Import AccountSettingsPage
 
 interface User {
   userId: string // email
@@ -24,6 +26,13 @@ function App() {
     }
   }, [])
 
+  const handleUserUpdate = (userId: string, _id: string, firstName?: string, lastName?: string) => {
+    const user = { userId, _id, firstName, lastName }
+    setCurrentUser(user)
+    localStorage.setItem('currentUser', JSON.stringify(user))
+    // No navigation here, as update happens on settings page
+  }
+
   const handleLoginSuccess = (userId: string, _id: string, firstName?: string, lastName?: string) => {
     const user = { userId, _id, firstName, lastName }
     setCurrentUser(user)
@@ -38,14 +47,21 @@ function App() {
   }
 
   return (
-    <Layout currentUser={currentUser} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout}>
-      <Routes>
-        <Route path="/" element={<HomePage currentUser={currentUser} />} />
-        <Route path="/my-cards" element={<MyCardsPage currentUser={currentUser} onLoginSuccess={handleLoginSuccess} />} />
-        <Route path="/create-card" element={<CreateCardPage currentUser={currentUser} />} />
-        <Route path="/card/:cardId" element={<CardDetailPage currentUser={currentUser} />} />
-      </Routes>
-    </Layout>
+    <>
+      <Toaster position="top-right" reverseOrder={false} /> {/* Add Toaster component */}
+      <Layout currentUser={currentUser} onLoginSuccess={handleLoginSuccess} onLogout={handleLogout}>
+        <Routes>
+          <Route path="/" element={<HomePage currentUser={currentUser} />} />
+          <Route path="/my-cards" element={<MyCardsPage currentUser={currentUser} onLoginSuccess={handleLoginSuccess} />} />
+          <Route path="/create-card" element={<CreateCardPage currentUser={currentUser} />} />
+          <Route path="/card/:cardId" element={<CardDetailPage currentUser={currentUser} />} />
+          <Route
+            path="/settings"
+            element={<AccountSettingsPage currentUser={currentUser} onUserUpdate={handleUserUpdate} />}
+          />
+        </Routes>
+      </Layout>
+    </>
   )
 }
 
