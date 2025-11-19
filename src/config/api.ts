@@ -1,20 +1,21 @@
-export const API_BASE_URL = 'https://souplike-marjorie-fierily.ngrok-free.dev'
-
 export const API_ENDPOINTS = {
-  INSERT_CARD: `${API_BASE_URL}/webhook/InsertCard`,
-  GET_CARDS: `${API_BASE_URL}/webhook/GetCards`,
-  UPDATE_CARD: `${API_BASE_URL}/webhook/UpdateCard`,
-  INSERT_MESSAGE: `${API_BASE_URL}/webhook/InsertMessage`,
-  READ_MESSAGES: `${API_BASE_URL}/webhook/ReadMessages`,
-  DELETE_MESSAGE: `${API_BASE_URL}/webhook/DeleteMessage`, // New endpoint for deleting messages
-  GET_USER: `${API_BASE_URL}/webhook/GetUser`, // Endpoint for user login
-  INSERT_USER: `${API_BASE_URL}/webhook/InsertUser`, // New endpoint for user registration
-  UPDATE_USER: `${API_BASE_URL}/webhook/UpdateUser`, // New endpoint for updating user profile
-  INSERT_ULINK_CARD: `${API_BASE_URL}/webhook/InsertUlinkCard`, // New endpoint for linking users to cards
-  GET_CARDS_BY_USER: `${API_BASE_URL}/webhook/GetCardsByUser`, // New endpoint for reading cards linked to a user
-  GET_USERS_BY_CARD: `${API_BASE_URL}/webhook/GetUsersByCard`, // New endpoint for reading users linked to a card
-  UPDATE_ULINK_CARD: `${API_BASE_URL}/webhook/UpdateUlinkCard`, // New endpoint for updating user-card links
-  DELETE_ULINK_CARD: `${API_BASE_URL}/webhook/DeleteUlinkCard`, // New endpoint for deleting user-card links
-  CREATE_CONTENT: `${API_BASE_URL}/webhook/create_content`, // New endpoint for generating message content
-  SEND_EMAIL: `${API_BASE_URL}/webhook/SendEmail`, // New endpoint for sending emails
+  GET_USER: 'https://cardify.app/api/get_user',
+  REGISTER_USER: 'https://cardify.app/api/register_user', // New endpoint for registration
+  CREATE_CARD: 'https://cardify.app/api/create_card',
+  GET_CARDS_BY_USER: 'https://cardify.app/api/get_cards_by_user',
+  GET_CARD_DETAILS: 'https://cardify.app/api/get_card_details',
+  ADD_PARTICIPANT: 'https://cardify.app/api/add_participant',
+  GET_PARTICIPANTS: 'https://cardify.app/api/get_participants',
+  REMOVE_PARTICIPANT: 'https://cardify.app/api/remove_participant',
+  UPDATE_CARD_STATUS: 'https://cardify.app/api/update_card_status',
+  ADD_MESSAGE: 'https://cardify.app/api/add_message',
+  GET_MESSAGES: 'https://cardify.app/api/get_messages',
+  DELETE_MESSAGE: 'https://cardify.app/api/delete_message',
+  EDIT_MESSAGE: 'https://cardify.app/api/edit_message',
+  GET_AI_SUGGESTION: 'https://cardify.app/api/get_ai_suggestion',
+  DELETE_CARD: 'https://cardify.app/api/delete_card',
+  UPDATE_USER_PROFILE: 'https://cardify.app/api/update_user_profile',
+  CHANGE_PASSWORD: 'https://cardify.app/api/change_password',
+  GET_USER_DETAILS: 'https://cardify.app/api/get_user_details',
+  GET_CARDS_BY_PARTICIPANT: 'https://cardify.app/api/get_cards_by_participant',
 }
