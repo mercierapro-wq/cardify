@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { X, Loader2, LogIn, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react'
+import React, { useState } from 'react'
+import { X, Loader2, LogIn, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 
 interface LoginModalProps {
@@ -12,32 +12,22 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   const [isLoginView, setIsLoginView] = useState(true) // true for login, false for register
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Password strength criteria states
-  const [hasMinLength, setHasMinLength] = useState(false)
-  const [hasUppercase, setHasUppercase] = useState(false)
-  const [hasDigit, setHasDigit] = useState(false)
-  const [hasSpecialChar, setHasSpecialChar] = useState(false)
-
   const resetForm = () => {
     setEmail('')
     setPassword('')
+    setConfirmPassword('')
     setFirstName('')
     setLastName('')
-    setConfirmPassword('')
     setError(null)
     setLoading(false)
     setShowPassword(false)
-    setHasMinLength(false)
-    setHasUppercase(false)
-    setHasDigit(false)
-    setHasSpecialChar(false)
   }
 
   const handleClose = () => {
@@ -46,23 +36,23 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     onClose()
   }
 
-  useEffect(() => {
-    if (!isLoginView) { // Only validate password for registration
-      setHasMinLength(password.length >= 8)
-      setHasUppercase(/[A-Z]/.test(password))
-      setHasDigit(/\d/.test(password))
-      setHasSpecialChar(/[!@#$%^&*?_.]/.test(password))
-    } else {
-      // Reset validation states when switching to login view
-      setHasMinLength(false)
-      setHasUppercase(false)
-      setHasDigit(false)
-      setHasSpecialChar(false)
-    }
-  }, [password, isLoginView])
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword)
+  }
 
-  const isPasswordValid = hasMinLength && hasUppercase && hasDigit && hasSpecialChar
-  const doPasswordsMatch = password === confirmPassword && confirmPassword !== ''
+  // Password strength criteria
+  const passwordCriteria = {
+    minLength: password.length >= 8,
+    hasUpperCase: /[A-Z]/.test(password),
+    hasDigit: /[0-9]/.test(password),
+    hasSpecialChar: /[!@#$%^&*?_.]/.test(password),
+  }
+
+  const allPasswordCriteriaMet = Object.values(passwordCriteria).every(Boolean)
+  const passwordsMatch = password === confirmPassword && password.length > 0
+
+  const isRegisterButtonDisabled =
+    !allPasswordCriteriaMet || !passwordsMatch || !firstName || !lastName || !email || loading
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -117,49 +107,41 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       return
     }
 
-    if (!isPasswordValid) {
+    if (!allPasswordCriteriaMet) {
       setError('Le mot de passe ne respecte pas tous les critères de sécurité.')
       setLoading(false)
       return
     }
 
-    if (!doPasswordsMatch) {
+    if (!passwordsMatch) {
       setError('Les mots de passe ne correspondent pas.')
       setLoading(false)
       return
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.REGISTER_USER, {
+      // Placeholder for registration API call
+      // In a real app, you would send this data to your registration endpoint
+      const response = await fetch('/api/register', { // Replace with actual registration endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          password,
-        }),
+        body: JSON.stringify({ firstName, lastName, email, password }),
       })
 
       if (!response.ok) {
-        throw new Error('Erreur réseau ou serveur.')
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Erreur lors de l\'inscription.')
       }
 
       const data = await response.json()
-
-      if (data.result === true) {
-        onLoginSuccess(data.user_id, data._id, data.firstName, data.lastName) // Assuming registration logs in the user
-        handleClose()
-      } else if (data.result === false) {
-        setError(data.message || 'Erreur lors de l\'inscription. Veuillez réessayer.')
-      } else {
-        setError('Erreur Serveur: Réponse inattendue.')
-      }
-    } catch (err) {
+      // Assuming registration success also logs the user in or provides necessary info
+      onLoginSuccess(data.user_id, data._id, data.firstName, data.lastName) // Adjust based on actual API response
+      handleClose()
+    } catch (err: any) {
       console.error('Registration error:', err)
-      setError('Erreur Serveur. Veuillez réessayer plus tard.')
+      setError(err.message || 'Erreur Serveur. Veuillez réessayer plus tard.')
     } finally {
       setLoading(false)
     }
@@ -179,9 +161,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   if (!isOpen) return null
 
   const modalTitle = isLoginView ? 'Bon retour parmi nous !' : 'Créez votre compte Cardify'
-  const submitButtonText = isLoginView ? 'Se connecter' : 'S\'inscrire'
-  const toggleText = isLoginView ? 'Pas encore de compte ?' : 'Déjà membre ?'
-  const toggleLinkText = isLoginView ? 'Créer un compte' : 'Se connecter'
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -253,7 +232,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={togglePasswordVisibility}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
                   >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -270,14 +249,23 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                 ) : (
                   <LogIn className="h-5 w-5 mr-2" />
                 )}
-                {submitButtonText}
+                Se connecter
               </button>
             </form>
+            <div className="mt-6 text-center text-gray-600">
+              Pas encore de compte ?{' '}
+              <button
+                onClick={() => { setIsLoginView(false); resetForm(); }}
+                className="text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
+              >
+                Créer un compte
+              </button>
+            </div>
           </>
         ) : (
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <div className="flex space-x-4">
-              <div className="flex-1">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
                   Prénom
                 </label>
@@ -291,7 +279,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                   required
                 />
               </div>
-              <div className="flex-1">
+              <div>
                 <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
                   Nom
                 </label>
@@ -308,7 +296,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Adresse Mail
+                Adresse E-mail
               </label>
               <input
                 type="email"
@@ -336,77 +324,75 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={togglePasswordVisibility}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
               <div className="mt-2 text-sm text-gray-600 space-y-1">
-                <p className={`flex items-center ${hasMinLength ? 'text-green-600' : 'text-gray-500'}`}>
-                  {hasMinLength ? <CheckCircle className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                <p className={`flex items-center ${passwordCriteria.minLength ? 'text-green-600' : 'text-gray-500'}`}>
+                  <CheckCircle className={`h-4 w-4 mr-2 ${passwordCriteria.minLength ? 'text-green-500' : 'text-gray-400'}`} />
                   Au moins 8 caractères
                 </p>
-                <p className={`flex items-center ${hasUppercase ? 'text-green-600' : 'text-gray-500'}`}>
-                  {hasUppercase ? <CheckCircle className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                <p className={`flex items-center ${passwordCriteria.hasUpperCase ? 'text-green-600' : 'text-gray-500'}`}>
+                  <CheckCircle className={`h-4 w-4 mr-2 ${passwordCriteria.hasUpperCase ? 'text-green-500' : 'text-gray-400'}`} />
                   Une lettre majuscule
                 </p>
-                <p className={`flex items-center ${hasDigit ? 'text-green-600' : 'text-gray-500'}`}>
-                  {hasDigit ? <CheckCircle className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                <p className={`flex items-center ${passwordCriteria.hasDigit ? 'text-green-600' : 'text-gray-500'}`}>
+                  <CheckCircle className={`h-4 w-4 mr-2 ${passwordCriteria.hasDigit ? 'text-green-500' : 'text-gray-400'}`} />
                   Un chiffre
                 </p>
-                <p className={`flex items-center ${hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
-                  {hasSpecialChar ? <CheckCircle className="h-4 w-4 mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                <p className={`flex items-center ${passwordCriteria.hasSpecialChar ? 'text-green-600' : 'text-gray-500'}`}>
+                  <CheckCircle className={`h-4 w-4 mr-2 ${passwordCriteria.hasSpecialChar ? 'text-green-500' : 'text-gray-400'}`} />
                   Un caractère spécial (@$!%*?&_.)
                 </p>
               </div>
             </div>
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirmer le mot de passe
+                Confirmer le mot de Passe
               </label>
               <input
                 type={showPassword ? 'text' : 'password'}
                 id="confirmPassword"
                 className={`mt-1 block w-full rounded-md shadow-sm sm:text-sm p-2 ${
-                  confirmPassword && !doPasswordsMatch ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                  confirmPassword.length > 0 && !passwordsMatch
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
                 }`}
                 maxLength={60}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
-              {confirmPassword && !doPasswordsMatch && (
+              {confirmPassword.length > 0 && !passwordsMatch && (
                 <p className="mt-1 text-sm text-red-600">Les mots de passe ne correspondent pas.</p>
               )}
             </div>
             <button
               type="submit"
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading || !isPasswordValid || !doPasswordsMatch}
+              disabled={isRegisterButtonDisabled}
             >
               {loading ? (
                 <Loader2 className="animate-spin h-5 w-5 mr-2" />
               ) : (
                 <LogIn className="h-5 w-5 mr-2" />
               )}
-              {submitButtonText}
+              S'inscrire
             </button>
+            <div className="mt-6 text-center text-gray-600">
+              Déjà membre ?{' '}
+              <button
+                onClick={() => { setIsLoginView(true); resetForm(); }}
+                className="text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
+              >
+                Se connecter
+              </button>
+            </div>
           </form>
         )}
-
-        <div className="mt-6 text-center text-gray-600 text-sm">
-          {toggleText}{' '}
-          <button
-            onClick={() => {
-              setIsLoginView(!isLoginView)
-              resetForm()
-            }}
-            className="text-indigo-600 hover:text-indigo-800 font-medium focus:outline-none"
-          >
-            {toggleLinkText}
-          </button>
-        </div>
       </div>
     </div>
   )
