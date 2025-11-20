@@ -49,10 +49,15 @@ const UserMenu: React.FC<UserMenuProps> = ({ currentUser, onLogout }) => {
     return null
   }
 
-  const userInitial = currentUser.firstName ? currentUser.firstName.charAt(0).toUpperCase() : currentUser.userId.charAt(0).toUpperCase()
+  // Safely get the initial, falling back to '?' if userId is also problematic
+  const userInitial = currentUser.firstName
+    ? currentUser.firstName.charAt(0).toUpperCase()
+    : (currentUser.userId && currentUser.userId.charAt(0).toUpperCase()) || '?'
+
+  // Safely get the display name, falling back to 'Utilisateur Inconnu'
   const displayName = currentUser.firstName && currentUser.lastName
     ? `${currentUser.firstName} ${currentUser.lastName}`
-    : currentUser.userId
+    : currentUser.userId || 'Utilisateur Inconnu'
 
   return (
     <div className="relative">

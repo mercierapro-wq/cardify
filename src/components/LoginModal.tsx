@@ -122,7 +122,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     try {
       // Placeholder for registration API call
       // In a real app, you would send this data to your registration endpoint
-      const response = await fetch('/api/register', { // Replace with actual registration endpoint
+      const response = await fetch(API_ENDPOINTS.INSERT_USER, { // Replace with actual registration endpoint
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,15 +147,45 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     }
   }
 
-  // Placeholder for Google SSO login
   const handleGoogleLogin = () => {
     setError(null)
     setLoading(true)
-    console.log('Initiating Google SSO login...')
-    setTimeout(() => {
+    const googleOAuthUrl = import.meta.env.VITE_GOOGLE_OAUTH_URL
+
+    if (googleOAuthUrl) {
+      const width = 500
+      const height = 600
+      const left = window.screen.width / 2 - width / 2
+      const top = window.screen.height / 2 - height / 2
+
+      const popup = window.open(
+        googleOAuthUrl,
+        'GoogleLoginPopup',
+        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+      )
+
+      if (!popup) {
+        setError('Le bloqueur de pop-up a empêché l\'ouverture de la fenêtre de connexion Google.')
+        setLoading(false)
+        return
+      }
+
+      // Optional: Listen for messages from the popup or check if it's closed
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup)
+          setLoading(false) // Stop loading when popup is closed
+          // Here you might want to re-check login status or show a message
+          // For a full implementation, the popup would redirect to a callback URL
+          // which then communicates with this parent window (e.g., via window.opener.postMessage)
+          // or the main app polls the backend for login status.
+        }
+      }, 1000)
+
+    } else {
+      setError('URL de connexion Google non configurée.')
       setLoading(false)
-      setError('La connexion Google n\'est pas encore implémentée.')
-    }, 1500)
+    }
   }
 
   if (!isOpen) return null
