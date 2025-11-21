@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, Loader2, LogIn, Eye, EyeOff, CheckCircle } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 
@@ -18,6 +18,43 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Écouteur d'événement pour le retour de la popup Google SSO
+  useEffect(() => {
+    const handleSSOMessage = (event: MessageEvent) => {
+      // 1. Filtrage de Sécurité
+      // On vérifie que event.data existe et que le type correspond exactement
+      if (event.data && event.data.type === 'GOOGLE_SSO_SUCCESS') {
+        
+        // 2. Traitement des Données
+        const { token, user } = event.data.data;
+
+        console.log('Google SSO Success:', user);
+
+        // 3. Persistance
+        // Sauvegarde du token
+        localStorage.setItem('authToken', token);
+        
+        // Sauvegarde de l'utilisateur sous la clé demandée 'user'
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        // IMPORTANT: Sauvegarde aussi sous 'currentUser' pour la compatibilité avec App.tsx
+        // App.tsx utilise 'currentUser' pour restaurer la session au chargement
+        localStorage.setItem('currentUser', JSON.stringify(user));
+
+        // 4. Mise à jour de l'UI (Rechargement forcé)
+        window.location.reload();
+      }
+    };
+
+    // Initialisation de l'écouteur
+    window.addEventListener('message', handleSSOMessage);
+
+    // 5. Nettoyage (Cleanup)
+    return () => {
+      window.removeEventListener('message', handleSSOMessage);
+    };
+  }, []);
 
   const resetForm = () => {
     setEmail('')
@@ -165,7 +202,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       )
 
       if (!popup) {
-        setError('Le bloqueur de pop-up a empêché l\'ouverture de la fenêtre de connexion Google.')
+        setError('Le bloqueur de pop-up a empêché l\'ouverture de la fenêtre de connexion Google. Veuillez autoriser les pop-ups pour ce site dans les paramètres de votre navigateur et réessayer.')
         setLoading(false)
         return
       }
