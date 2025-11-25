@@ -19,41 +19,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
 
-  // Écouteur d'événement pour le retour de la popup Google SSO
+  // L'écouteur d'événement pour le retour de la popup Google SSO est supprimé
+  // car nous passons à un flux de redirection complète.
   useEffect(() => {
-    const handleSSOMessage = (event: MessageEvent) => {
-      // 1. Filtrage de Sécurité
-      // On vérifie que event.data existe et que le type correspond exactement
-      if (event.data && event.data.type === 'GOOGLE_SSO_SUCCESS') {
-        
-        // 2. Traitement des Données
-        const { token, user } = event.data.data;
-
-        console.log('Google SSO Success:', user);
-
-        // 3. Persistance
-        // Sauvegarde du token
-        localStorage.setItem('authToken', token);
-        
-        // Sauvegarde de l'utilisateur sous la clé demandée 'user'
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // IMPORTANT: Sauvegarde aussi sous 'currentUser' pour la compatibilité avec App.tsx
-        // App.tsx utilise 'currentUser' pour restaurer la session au chargement
-        localStorage.setItem('currentUser', JSON.stringify(user));
-
-        // 4. Mise à jour de l'UI (Rechargement forcé)
-        window.location.reload();
-      }
-    };
-
-    // Initialisation de l'écouteur
-    window.addEventListener('message', handleSSOMessage);
-
-    // 5. Nettoyage (Cleanup)
-    return () => {
-      window.removeEventListener('message', handleSSOMessage);
-    };
+    // Nettoyage de l'écouteur précédent si nécessaire, bien qu'il soit supprimé du code.
+    // Si vous aviez un écouteur global dans index.html, il restera actif.
+    // Pour ce composant, il n'y a plus de logique SSO basée sur postMessage.
   }, []);
 
   const resetForm = () => {
@@ -184,46 +155,19 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     }
   }
 
-  const handleGoogleLogin = () => {
-    setError(null)
-    setLoading(true)
-    const googleOAuthUrl = import.meta.env.VITE_GOOGLE_OAUTH_URL
+  // La fonction handleGoogleLogin est supprimée car nous utilisons une balise <a> pour la redirection directe.
+  // const handleGoogleLogin = () => {
+  //   setError(null)
+  //   setLoading(true)
+  //   const googleOAuthUrl = import.meta.env.VITE_GOOGLE_OAUTH_URL
 
-    if (googleOAuthUrl) {
-      const width = 500
-      const height = 600
-      const left = window.screen.width / 2 - width / 2
-      const top = window.screen.height / 2 - height / 2
-
-      const popup = window.open(
-        googleOAuthUrl,
-        'GoogleLoginPopup',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-      )
-
-      if (!popup) {
-        setError('Le bloqueur de pop-up a empêché l\'ouverture de la fenêtre de connexion Google. Veuillez autoriser les pop-ups pour ce site dans les paramètres de votre navigateur et réessayer.')
-        setLoading(false)
-        return
-      }
-
-      // Optional: Listen for messages from the popup or check if it's closed
-      const checkPopup = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkPopup)
-          setLoading(false) // Stop loading when popup is closed
-          // Here you might want to re-check login status or show a message
-          // For a full implementation, the popup would redirect to a callback URL
-          // which then communicates with this parent window (e.g., via window.opener.postMessage)
-          // or the main app polls the backend for login status.
-        }
-      }, 1000)
-
-    } else {
-      setError('URL de connexion Google non configurée.')
-      setLoading(false)
-    }
-  }
+  //   if (googleOAuthUrl) {
+  //     window.location.href = googleOAuthUrl
+  //   } else {
+  //     setError('URL de connexion Google non configurée.')
+  //     setLoading(false)
+  //   }
+  // }
 
   if (!isOpen) return null
 
@@ -249,18 +193,15 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
         {isLoginView ? (
           <>
-            <button
-              onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
-              disabled={loading}
+            <a
+              href={import.meta.env.VITE_GOOGLE_OAUTH_URL}
+              target="_top"
+              className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mb-6"
+              aria-label="Continuer avec Google"
             >
-              {loading ? (
-                <Loader2 className="animate-spin h-5 w-5 mr-3" />
-              ) : (
-                <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google logo" className="h-5 w-5 mr-3" />
-              )}
+              <img src="https://www.svgrepo.com/show/355037/google.svg" alt="Google logo" className="h-5 w-5 mr-3" />
               Continuer avec Google
-            </button>
+            </a>
 
             <div className="relative flex items-center justify-center my-6">
               <div className="flex-grow border-t border-gray-300"></div>

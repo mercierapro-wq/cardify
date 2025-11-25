@@ -9,5 +9,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Écouteur global pour le débogage des messages postés
+      window.addEventListener('message', (event) => {
+        console.log('GLOBAL LISTENER: Message received in main window!');
+        console.log('GLOBAL LISTENER: Origin:', event.origin);
+        console.log('GLOBAL LISTENER: Data:', event.data);
+      });
+      console.log('GLOBAL LISTENER: Message event listener attached to window.');
+    </script>
   </body>
 </html>
