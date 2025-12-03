@@ -22,19 +22,20 @@ function App() {
   useEffect(() => {
     const storedUser = localStorage.getItem('currentUser')
     if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser))
+      const user: User = JSON.parse(storedUser)
+      setCurrentUser(user)
     }
   }, [])
 
   const handleUserUpdate = (userId: string, _id: string, firstName?: string, lastName?: string) => {
-    const user = { userId, _id, firstName, lastName }
+    const user: User = { userId, _id, firstName, lastName }
     setCurrentUser(user)
     localStorage.setItem('currentUser', JSON.stringify(user))
     // No navigation here, as update happens on settings page
   }
 
   const handleLoginSuccess = (userId: string, _id: string, firstName?: string, lastName?: string) => {
-    const user = { userId, _id, firstName, lastName }
+    const user: User = { userId, _id, firstName, lastName }
     setCurrentUser(user)
     localStorage.setItem('currentUser', JSON.stringify(user))
     navigate('/my-cards') // Navigate to /my-cards after successful login

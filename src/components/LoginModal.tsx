@@ -45,7 +45,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   }
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword)
+    setShowPassword(!showPassword
+    )
   }
 
   // Password strength criteria
@@ -128,9 +129,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     }
 
     try {
-      // Placeholder for registration API call
-      // In a real app, you would send this data to your registration endpoint
-      const response = await fetch(API_ENDPOINTS.INSERT_USER, { // Replace with actual registration endpoint
+      const registerResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -138,15 +137,40 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         body: JSON.stringify({ firstName, lastName, email, password }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
+      if (!registerResponse.ok) {
+        const errorData = await registerResponse.json()
         throw new Error(errorData.message || 'Erreur lors de l\'inscription.')
       }
 
-      const data = await response.json()
-      // Assuming registration success also logs the user in or provides necessary info
-      onLoginSuccess(data.user_id, data._id, data.firstName, data.lastName) // Adjust based on actual API response
-      handleClose()
+      const registerData = await registerResponse.json()
+
+      if (registerData.result === 'true') {
+        // Registration successful, now fetch user details
+        const loginResponse = await fetch(API_ENDPOINTS.GET_USER, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user_id: email, password: password }),
+        })
+
+        if (!loginResponse.ok) {
+          throw new Error('Inscription réussie, mais impossible de récupérer les détails de l\'utilisateur.')
+        }
+
+        const userData = await loginResponse.json()
+
+        if (userData.result === true) {
+          onLoginSuccess(userData.user_id, userData._id, userData.firstName, userData.lastName)
+          handleClose()
+        } else {
+          setError('Inscription réussie, mais erreur lors de la connexion automatique.')
+        }
+      } else if (registerData.result === 'KO' && registerData.cause === 'email already exists') {
+        setError('Cette adresse e-mail est déjà utilisée.')
+      } else {
+        setError('Erreur Serveur: Réponse inattendue lors de l\'inscription.')
+      }
     } catch (err: any) {
       console.error('Registration error:', err)
       setError(err.message || 'Erreur Serveur. Veuillez réessayer plus tard.')

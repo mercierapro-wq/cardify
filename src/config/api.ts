@@ -1,5 +1,5 @@
-export const API_BASE_URL = 'https://souplike-marjorie-fierily.ngrok-free.dev'
-
+//export const API_BASE_URL = 'https://souplike-marjorie-fierily.ngrok-free.dev'
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://souplike-marjorie-fierily.ngrok-free.dev';
 export const API_ENDPOINTS = {
   INSERT_CARD: `${API_BASE_URL}/webhook/InsertCard`,
   GET_CARDS: `${API_BASE_URL}/webhook/GetCards`,

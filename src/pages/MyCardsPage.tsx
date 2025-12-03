@@ -65,12 +65,14 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       setError(null)
 
       // RG 1: Fetch linked card IDs and roles using GetCardsByUser for the current user
+      const requestBody = { user_id: currentUser.userId };
+
       const ulinkResponse = await fetch(API_ENDPOINTS.GET_CARDS_BY_USER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user_id: currentUser.userId }),
+        body: JSON.stringify(requestBody),
       })
 
       if (!ulinkResponse.ok) {
