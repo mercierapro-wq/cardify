@@ -471,20 +471,20 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           send_content: card.description,
           send_subject: card.title,
           card_link: cardLink,
+          cover_image: card.cover, // Add the cover image to the email body
+          email_type: "Votre nouvelle carte !", // Add email_type as requested
         }),
       });
 
-      if (!sendEmailResponse.ok) {
-        const errorData = await sendEmailResponse.json();
-        throw new Error(errorData.message || "Erreur lors de l'envoi de l'e-mail.");
+      // Even if response.ok is true, the API might return {"Status": "error"}
+      const emailResult = await sendEmailResponse.json();
+
+      if (!sendEmailResponse.ok || emailResult.Status === "error") {
+        throw new Error(emailResult.message || "Erreur lors de l'envoi de l'e-mail.");
       }
 
-      const emailResult = await sendEmailResponse.json();
-      // Check if the email was successfully sent (RG 1 success condition)
-      // The API returns an object like {"id":"...", "threadId":"...", "labelIds":["SENT"]}
-      const isEmailSent = emailResult && emailResult.labelIds && emailResult.labelIds.includes('SENT');
-
-      if (!isEmailSent) {
+      // Check for success status explicitly
+      if (emailResult.Status !== "send") {
         throw new Error("L'e-mail n'a pas pu être envoyé. Veuillez vérifier les détails.");
       }
 
