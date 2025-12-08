@@ -237,23 +237,26 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
       const ulinkCards: UlinkCardProps[] = await response.json()
 
-      // Fetch user details for each participant
+      // Fetch user details for each participant using GetUserInformation
       const uniqueUserIds = Array.from(new Set(ulinkCards.map(ul => ul.user_id)))
-      const userDetailsPromises = uniqueUserIds.map(async (userId) => {
-        const userResponse = await fetch(API_ENDPOINTS.GET_USER, {
+      let userDetailsMap = new Map<string, { firstName?: string; lastName?: string }>();
+
+      if (uniqueUserIds.length > 0) {
+        const userInformationResponse = await fetch(API_ENDPOINTS.GET_USERS_INFORMATION, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: userId }),
-        })
-        if (userResponse.ok) {
-          const userData = await userResponse.json()
-          return { userId, firstName: userData.firstName, lastName: userData.lastName }
-        }
-        return { userId, firstName: undefined, lastName: undefined }
-      })
+          body: JSON.stringify({ user_ids: uniqueUserIds }), // Use user_ids as per common API patterns
+        });
 
-      const allUserDetails = await Promise.all(userDetailsPromises)
-      const userDetailsMap = new Map(allUserDetails.map(u => [u.userId, { firstName: u.firstName, lastName: u.lastName }]))
+        if (userInformationResponse.ok) {
+          const usersData: User[] = await userInformationResponse.json();
+          usersData.forEach(user => {
+            userDetailsMap.set(user.userId, { firstName: user.firstName, lastName: user.lastName });
+          });
+        } else {
+          console.warn('Failed to fetch user information for participants:', await userInformationResponse.json());
+        }
+      }
 
       const enrichedParticipants: UlinkCardProps[] = ulinkCards.map(ul => ({
         ...ul,

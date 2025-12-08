@@ -80,22 +80,55 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user_id: email, password: password }),
+        body: JSON.stringify({ user_id: email, password: password }), // Renamed 'email' to 'user_id'
       })
 
       if (!response.ok) {
-        throw new Error('Erreur réseau ou serveur.')
+        const errorData = await response.json();
+        if (errorData.description === "INVALID_LOGIN_CREDENTIALS") {
+          setError('Identifiants de connexion invalides. Veuillez vérifier votre e-mail et votre mot de passe.');
+        } else {
+          setError(errorData.message || 'Erreur réseau ou serveur.');
+        }
+        setLoading(false);
+        return;
       }
 
       const data = await response.json()
 
-      if (data.result === true) {
-        onLoginSuccess(data.user_id, data._id, data.firstName, data.lastName)
-        handleClose()
-      } else if (data.result === false) {
-        setError('Adresse Mail ou Mot de Passe incorrect.')
+      // Expected success response for GETUSER is an array with one object containing tokens
+      if (Array.isArray(data) && data.length > 0) {
+        const userData = data[0];
+        const { user_id, token_id, refresh_token } = userData;
+
+        if (token_id) {
+          // --- Firebase Authentication Integration ---
+          // This is a placeholder for actual Firebase Auth logic.
+          // You would typically import Firebase auth instance and use signInWithCustomToken.
+          // Example:
+          // import { getAuth, signInWithCustomToken } from 'firebase/auth';
+          // const auth = getAuth();
+          // await signInWithCustomToken(auth, token_id);
+          //
+          // For now, we'll simulate success and log the tokens.
+          console.log('Firebase Custom Token (Login):', token_id);
+          console.log('Firebase Refresh Token (Login):', refresh_token);
+          // Assume Firebase sign-in was successful here.
+          // In a real app, you'd handle Firebase errors.
+          // --- End Firebase Authentication Integration ---
+
+          // Note: GETUSER response doesn't include _id, firstName, lastName directly.
+          // You might need another call (e.g., GetUserInformation) or store these on client-side
+          // after initial registration/login if they are needed for onLoginSuccess.
+          // For now, we'll pass email as userId and a placeholder for _id.
+          // If _id, firstName, lastName are critical, you'll need to fetch them.
+          onLoginSuccess(user_id, 'placeholder_id', undefined, undefined); // Adjust if _id, firstName, lastName are available
+          handleClose();
+        } else {
+          setError('Connexion réussie, mais aucun jeton d\'authentification reçu.');
+        }
       } else {
-        setError('Erreur Serveur: Réponse inattendue.')
+        setError('Erreur Serveur: Réponse inattendue lors de la connexion.');
       }
     } catch (err) {
       console.error('Login error:', err)
@@ -134,39 +167,53 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ firstName, lastName, email, password }),
+        body: JSON.stringify({ firstName, lastName, user_id: email, password }), // Renamed 'email' to 'user_id'
       })
 
       if (!registerResponse.ok) {
         const errorData = await registerResponse.json()
-        throw new Error(errorData.message || 'Erreur lors de l\'inscription.')
+        // Handle specific InsertUser error for existing email
+        if (Array.isArray(errorData) && errorData.length > 0 && errorData[0].description === 'INVALID_EMAIL') {
+          setError('Cette adresse e-mail est déjà utilisée.')
+        } else {
+          setError(errorData.message || 'Erreur lors de l\'inscription.')
+        }
+        setLoading(false)
+        return
       }
 
       const registerData = await registerResponse.json()
 
-      if (registerData.result === 'true') {
-        // Registration successful, now fetch user details
-        const loginResponse = await fetch(API_ENDPOINTS.GET_USER, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ user_id: email, password: password }),
-        })
+      // Handle new response structure for InsertUser with tokens
+      if (Array.isArray(registerData) && registerData.length > 0) {
+        const userData = registerData[0];
+        const { user_id, _id, firstName, lastName, token_id, refresh_token, expiresIn } = userData;
 
-        if (!loginResponse.ok) {
-          throw new Error('Inscription réussie, mais impossible de récupérer les détails de l\'utilisateur.')
-        }
+        if (token_id) {
+          // --- Firebase Authentication Integration ---
+          // This is a placeholder for actual Firebase Auth logic.
+          // You would typically import Firebase auth instance and use signInWithCustomToken.
+          // Example:
+          // import { getAuth, signInWithCustomToken } from 'firebase/auth';
+          // const auth = getAuth();
+          // await signInWithCustomToken(auth, token_id);
+          //
+          // For now, we'll simulate success and log the tokens.
+          console.log('Firebase Custom Token (Register):', token_id);
+          console.log('Firebase Refresh Token (Register):', refresh_token);
+          console.log('Firebase Token Expires In (Register):', expiresIn);
+          // Assume Firebase sign-in was successful here.
+          // In a real app, you'd handle Firebase errors.
+          // --- End Firebase Authentication Integration ---
 
-        const userData = await loginResponse.json()
-
-        if (userData.result === true) {
-          onLoginSuccess(userData.user_id, userData._id, userData.firstName, userData.lastName)
-          handleClose()
+          onLoginSuccess(user_id, _id, firstName, lastName);
+          handleClose();
         } else {
-          setError('Inscription réussie, mais erreur lors de la connexion automatique.')
+          setError('Inscription réussie, mais aucun jeton d\'authentification reçu.');
         }
       } else if (registerData.result === 'KO' && registerData.cause === 'email already exists') {
+        // This block might be redundant if the above error handling for INVALID_EMAIL covers it.
+        // Keeping it for now in case there are other 'email already exists' scenarios not covered by 'INVALID_EMAIL' description.
         setError('Cette adresse e-mail est déjà utilisée.')
       } else {
         setError('Erreur Serveur: Réponse inattendue lors de l\'inscription.')

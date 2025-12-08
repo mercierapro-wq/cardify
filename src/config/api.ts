@@ -1,4 +1,3 @@
-//export const API_BASE_URL = 'https://souplike-marjorie-fierily.ngrok-free.dev'
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://souplike-marjorie-fierily.ngrok-free.dev';
 export const API_ENDPOINTS = {
   INSERT_CARD: `${API_BASE_URL}/webhook/InsertCard`,
@@ -8,6 +7,7 @@ export const API_ENDPOINTS = {
   READ_MESSAGES: `${API_BASE_URL}/webhook/ReadMessages`,
   DELETE_MESSAGE: `${API_BASE_URL}/webhook/DeleteMessage`, // New endpoint for deleting messages
   GET_USER: `${API_BASE_URL}/webhook/GetUser`, // Endpoint for user login
+  GET_USERS_INFORMATION: `${API_BASE_URL}/webhook/GetUserInformation`, // New endpoint for getting multiple users by IDs
   INSERT_USER: `${API_BASE_URL}/webhook/InsertUser`, // New endpoint for user registration
   UPDATE_USER: `${API_BASE_URL}/webhook/UpdateUser`, // New endpoint for updating user profile
   INSERT_ULINK_CARD: `${API_BASE_URL}/webhook/InsertUlinkCard`, // New endpoint for linking users to cards
