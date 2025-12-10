@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, Send, Image, Video, Mic, Type, Pencil, Mail, Play, Sparkles, Users, Trash2 } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import { authFetch } from '../utils/authFetch' // ✅ IMPORT ADDED
 import AIMessageModal from '../components/AIMessageModal'
-import ManageParticipantsModal from '../components/ManageParticipantsModal' // Import new unified modal
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal' // Import DeleteConfirmationModal
+import ManageParticipantsModal from '../components/ManageParticipantsModal'
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
 interface User {
   userId: string
@@ -44,7 +45,6 @@ interface UlinkCardProps {
   role: 'admin' | 'contributor' | 'beneficiary'
   updatedAt: string
   createdAt: string
-  // Added for enriched participant data
   firstName?: string
   lastName?: string
 }
@@ -57,7 +57,7 @@ interface CardDetailPageProps {
 const getYouTubeId = (url: string): string | null => {
   const patterns = [
     /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|v\/|)([\w-]{11})(?:\S+)?/i,
-    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com)\/shorts\/([\w-]{11})(?:\S+)?/i, // For YouTube Shorts
+    /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com)\/shorts\/([\w-]{11})(?:\S+)?/i,
   ];
 
   for (const pattern of patterns) {
@@ -76,7 +76,7 @@ const YouTubeEmbed: React.FC<{ videoId: string }> = ({ videoId }) => {
   const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
 
   return (
-    <div className="relative w-full pb-[56.25%] h-0 rounded-lg overflow-hidden shadow-md border border-gray-200"> {/* 16:9 Aspect Ratio */}
+    <div className="relative w-full pb-[56.25%] h-0 rounded-lg overflow-hidden shadow-md border border-gray-200">
       {!showEmbed ? (
         <div
           className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black bg-opacity-50"
@@ -134,11 +134,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [audioFile, setAudioFile] = useState<File | null>(null)
-  const [generatedImageContent, setGeneratedImageContent] = useState<string | null>(null) // New state for generated image
+  const [generatedImageContent, setGeneratedImageContent] = useState<string | null>(null)
 
   const [isSubmittingMessage, setIsSubmittingMessage] = useState(false)
   const [messageError, setMessageError] = useState<string | null>(null)
-  const [isAIMessageModalOpen, setIsAIMessageModalOpen] = useState(false) // State for AI modal
+  const [isAIMessageModalOpen, setIsAIMessageModalOpen] = useState(false)
 
   // Cagnotte states
   const [isMoneyPotActive, setIsMoneyPotActive] = useState(false)
@@ -156,13 +156,12 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   // Participant states
   const [participants, setParticipants] = useState<UlinkCardProps[]>([])
-  const [isManageParticipantsModalOpen, setIsManageParticipantsModalOpen] = useState(false) // State for new unified modal
+  const [isManageParticipantsModalOpen, setIsManageParticipantsModalOpen] = useState(false)
   const [loadingParticipants, setLoadingParticipants] = useState(true)
 
   // Message deletion states
   const [isDeleteMessageModalOpen, setIsDeleteMessageModalOpen] = useState(false)
   const [messageToDelete, setMessageToDelete] = useState<MessageProps | null>(null)
-
 
   // User role on this card
   const [userRole, setUserRole] = useState<'admin' | 'contributor' | 'beneficiary' | null>(null)
@@ -183,7 +182,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       setLoadingCard(true)
       setError(null)
 
-      const response = await fetch(API_ENDPOINTS.GET_CARDS, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.GET_CARDS, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -222,7 +222,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
     try {
       setLoadingParticipants(true)
-      const response = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
+      
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,10 +244,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       let userDetailsMap = new Map<string, { firstName?: string; lastName?: string }>();
 
       if (uniqueUserIds.length > 0) {
-        const userInformationResponse = await fetch(API_ENDPOINTS.GET_USERS_INFORMATION, {
+        // ✅ CHANGED: Use authFetch instead of fetch
+        const userInformationResponse = await authFetch(API_ENDPOINTS.GET_USERS_INFORMATION, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_ids: uniqueUserIds }), // Use user_ids as per common API patterns
+          body: JSON.stringify({ user_ids: uniqueUserIds }),
         });
 
         if (userInformationResponse.ok) {
@@ -304,7 +307,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   useEffect(() => {
     fetchParticipantsAndRole()
-  }, [cardId, currentUser]) // Re-fetch if cardId or currentUser changes
+  }, [cardId, currentUser])
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -313,9 +316,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         return
       }
 
-      // Only fetch messages if the card is sent or if the user is an admin/contributor
       if (isBeneficiary && !isCardSent) {
-        setMessages([]) // Clear messages if beneficiary and card not sent
+        setMessages([])
         setLoadingMessages(false)
         return
       }
@@ -324,7 +326,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         setLoadingMessages(true)
         setMessageError(null)
 
-        const response = await fetch(API_ENDPOINTS.READ_MESSAGES, {
+        // ✅ CHANGED: Use authFetch instead of fetch
+        const response = await authFetch(API_ENDPOINTS.READ_MESSAGES, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -337,15 +340,13 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           throw new Error(errorData.message || 'Erreur lors de la récupération des messages.')
         }
 
-        const data = await response.json() // Get raw data first
+        const data = await response.json()
 
-        // RG2: If no messages, the endpoint returns [{"error": "No Message"}]
         if (Array.isArray(data) && data.length === 1 && (data[0] as any).error === "No Message") {
-          setMessages([]); // Set to empty array if "No Message" error
+          setMessages([]);
         } else if (Array.isArray(data)) {
-          setMessages(data as MessageProps[]); // Otherwise, set actual messages
+          setMessages(data as MessageProps[]);
         } else {
-          // Handle unexpected data format, maybe log an error or set messages to empty
           console.warn("Unexpected response format from ReadMessages:", data);
           setMessages([]);
         }
@@ -358,15 +359,14 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       }
     }
 
-    if (cardId && (isCardSent || !isBeneficiary)) { // Fetch messages if card is sent OR user is not a beneficiary
+    if (cardId && (isCardSent || !isBeneficiary)) {
       fetchMessages()
     } else if (cardId && isBeneficiary && !isCardSent) {
-      setMessages([]) // Ensure messages are cleared if beneficiary and card not sent
+      setMessages([])
       setLoadingMessages(false)
     }
   }, [cardId, isCardSent, isBeneficiary])
 
-  // Initialize money pot states when card data is loaded
   useEffect(() => {
     if (card) {
       setIsMoneyPotActive(!!card.moneyPotLink)
@@ -384,7 +384,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     setUpdateError(null)
 
     try {
-      const response = await fetch(API_ENDPOINTS.UPDATE_CARD, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.UPDATE_CARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -401,11 +402,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       }
 
       const updatedCard = await response.json()
-      // Merge the updated fields into the existing card state
       setCard(prevCard => {
         const newCardState = { ...prevCard!, ...updatedCard };
-        // Explicitly ensure moneyPotLink is updated with the value sent,
-        // in case the API response doesn't reflect it immediately or correctly.
         if (field === 'moneyPotLink') {
           newCardState.moneyPotLink = value;
         }
@@ -415,7 +413,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         return newCardState;
       });
       
-      // Also update local states derived from card
       if (field === 'moneyPotLink') {
         setIsMoneyPotActive(!!value)
         setMoneyPotLinkInput(value || '')
@@ -431,15 +428,13 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const handleToggleMoneyPot = async () => {
     if (!isAdmin) return
     const newStatus = !isMoneyPotActive
-    setIsMoneyPotActive(newStatus) // Update local state immediately
+    setIsMoneyPotActive(newStatus)
 
     if (!newStatus) {
-      // If deactivating, clear the link in the database
       await updateCardField('moneyPotLink', '')
-      setIsEditingMoneyPot(false) // Hide edit input if deactivated
-      setMoneyPotLinkInput('') // Clear local input state
+      setIsEditingMoneyPot(false)
+      setMoneyPotLinkInput('')
     }
-    // If activating, do nothing here. The link will be set when explicitly saved.
   }
 
   const handleSaveMoneyPotLink = async () => {
@@ -451,8 +446,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const handleSendCard = async () => {
     if (!isAdmin || !card || card.status === 'sent') return
     
-    setUpdateError(null); // Clear previous errors
-    setIsUpdatingCard(true); // Indicate loading
+    setUpdateError(null);
+    setIsUpdatingCard(true);
 
     if (!beneficiaryEmail) {
       setUpdateError("Impossible d'envoyer la carte : aucun bénéficiaire n'est défini.");
@@ -463,8 +458,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     try {
       const cardLink = `${window.location.origin}/card/${card._id}`;
 
-      // RG 1: Call SendEmail endpoint
-      const sendEmailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const sendEmailResponse = await authFetch(API_ENDPOINTS.SEND_EMAIL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -474,28 +469,24 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           send_content: card.description,
           send_subject: card.title,
           card_link: cardLink,
-          cover_image: card.cover, // Add the cover image to the email body
-          email_type: "Votre nouvelle carte !", // Add email_type as requested
+          cover_image: card.cover,
+          email_type: "Votre nouvelle carte !",
         }),
       });
 
-      // Even if response.ok is true, the API might return {"Status": "error"}
       const emailResult = await sendEmailResponse.json();
 
       if (!sendEmailResponse.ok || emailResult.Status === "error") {
         throw new Error(emailResult.message || "Erreur lors de l'envoi de l'e-mail.");
       }
 
-      // Check for success status explicitly
       if (emailResult.Status !== "send") {
         throw new Error("L'e-mail n'a pas pu être envoyé. Veuillez vérifier les détails.");
       }
 
-      // RG 2: Update card status to "Envoyé"
       await updateCardField('status', 'sent');
-      // RG 3: Card becomes visible for the beneficiary (handled by useEffect)
 
-      setUpdateError(null); // Clear any errors if successful
+      setUpdateError(null);
     } catch (err) {
       console.error('Failed to send card:', err);
       setUpdateError((err as Error).message || 'Impossible d\'envoyer la carte. Veuillez réessayer.');
@@ -514,7 +505,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     setBeneficiaryUpdateError(null)
 
     try {
-      const response = await fetch(API_ENDPOINTS.UPDATE_ULINK_CARD, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.UPDATE_ULINK_CARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -531,11 +523,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
         throw new Error(errorData.message || 'Erreur lors de la mise à jour du bénéficiaire.')
       }
 
-      // Assuming the API returns the updated ulink card or a success message
-      // We can update the local state with the new beneficiary email
       setBeneficiaryEmail(beneficiaryEmailInput.trim())
       setIsEditingBeneficiary(false)
-      fetchParticipantsAndRole() // Refresh participants to show updated beneficiary
+      fetchParticipantsAndRole()
     } catch (err) {
       console.error('Failed to update beneficiary email:', err)
       setBeneficiaryUpdateError((err as Error).message || 'Impossible de mettre à jour le bénéficiaire.')
@@ -562,8 +552,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       setVideoUrl('');
       setAudioFile(null);
     } else if (type === 'image') {
-      setGeneratedImageContent(content); // This content is already base64 prefixed
-      setImageFile(null); // Clear manual file selection
+      setGeneratedImageContent(content);
+      setImageFile(null);
       setTextMessageContent('');
       setVideoUrl('');
       setAudioFile(null);
@@ -574,7 +564,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       setGeneratedImageContent(null);
       setAudioFile(null);
     } else if (type === 'audio') {
-      // TEMPORARY: Using videoUrl for AI-generated audio URL, as discussed in AIMessageModal
       setVideoUrl(content);
       setAudioFile(null);
       setTextMessageContent('');
@@ -583,7 +572,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     }
     setIsAIMessageModalOpen(false);
   };
-
 
   const handleMessageSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -606,9 +594,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       }
       contentToSend = textMessageContent.trim()
     } else if (selectedMessageType === 'image') {
-      if (generatedImageContent) { // Use generated image if available
+      if (generatedImageContent) {
         contentToSend = generatedImageContent;
-      } else if (imageFile) { // Otherwise, use manually selected file
+      } else if (imageFile) {
         try {
           contentToSend = await convertFileToBase64(imageFile);
         } catch (err) {
@@ -644,7 +632,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     setMessageError(null)
 
     try {
-      const response = await fetch(API_ENDPOINTS.INSERT_MESSAGE, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.INSERT_MESSAGE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -675,13 +664,12 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
       setMessages((prevMessages) => [...prevMessages, messageWithUserNames])
       
-      // Clear input fields after successful submission
       setTextMessageContent('')
       setImageFile(null)
       setVideoUrl('')
       setAudioFile(null)
-      setGeneratedImageContent(null) // Clear generated image
-      setSelectedMessageType('text') // Reset to text input
+      setGeneratedImageContent(null)
+      setSelectedMessageType('text')
     } catch (err) {
       console.error('Failed to send message:', err)
       setMessageError((err as Error).message || 'Impossible d\'envoyer le message. Veuillez réessayer.')
@@ -691,9 +679,8 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   }
 
   const renderMessageContent = (message: MessageProps) => {
-    const messageContent = message.content || ''; // Ensure content is a string
+    const messageContent = message.content || '';
     
-    // Check for YouTube link first if it's a text message
     if (message.message_type === 'text' || message.message_type === 'video') {
       const youtubeId = getYouTubeId(messageContent);
       if (youtubeId) {
@@ -705,25 +692,22 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       case 'text':
         return <p className="text-gray-800">{messageContent}</p>
       case 'image':
-        // Ensure the image content has the data URI prefix for display
         const imageSrc = messageContent.startsWith('data:image/') ? messageContent : `data:image/png;base64,${messageContent}`;
         return (
           <img 
             src={imageSrc} 
             alt="Message image" 
             className="max-w-full h-auto rounded-lg shadow-md" 
-            style={{ maxHeight: '200px', objectFit: 'contain' }} // Limit height for tile display
+            style={{ maxHeight: '200px', objectFit: 'contain' }}
           />
         )
       case 'video':
-        // If it's a video type but not a YouTube link (e.g., a direct video file URL or other platform)
         return (
           <a href={messageContent} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline flex items-center">
             <Video className="w-4 h-4 mr-1" /> Voir la vidéo
           </a>
         )
       case 'audio':
-        // Ensure the audio content has the data URI prefix for display if it's base64
         const audioSrc = messageContent.startsWith('data:audio/') ? messageContent : `data:audio/mpeg;base64,${messageContent}`;
         return (
           <audio controls src={audioSrc} className="w-full">
@@ -731,7 +715,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           </audio>
         );
       default:
-        // Fallback for unknown types, or if type is 'text' but content is image
         if (typeof messageContent === 'string' && messageContent.startsWith('data:image/')) {
           return (
             <img 
@@ -748,17 +731,15 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   const isSubmitDisabled = isSubmittingMessage || (
     (selectedMessageType === 'text' && !textMessageContent.trim()) ||
-    (selectedMessageType === 'image' && !imageFile && !generatedImageContent) || // Check for generated image too
+    (selectedMessageType === 'image' && !imageFile && !generatedImageContent) ||
     (selectedMessageType === 'video' && !videoUrl.trim()) ||
     (selectedMessageType === 'audio' && !audioFile)
   )
 
-  // Participant Management Handlers
   const handleOpenManageParticipantsModal = () => setIsManageParticipantsModalOpen(true)
   const handleCloseManageParticipantsModal = () => setIsManageParticipantsModalOpen(false)
   const handleParticipantsUpdated = () => {
-    fetchParticipantsAndRole() // Refresh participant list after invitations/changes
-    // No need to close the modal here, it can stay open for further management
+    fetchParticipantsAndRole()
   }
 
   const handleDeleteParticipant = async (ulinkCardId: string, participantEmail: string) => {
@@ -770,8 +751,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     setUpdateError(null)
 
     try {
-      const response = await fetch(API_ENDPOINTS.DELETE_ULINK_CARD, {
-        method: 'POST', // Assuming POST for deletion as per API spec
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.DELETE_ULINK_CARD, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -787,10 +769,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       }
 
       const responseData = await response.json();
-      // The server returns [{"deletedCount":1}] for a successful deletion.
-      // We check if deletedCount is at least 1.
       if (responseData && responseData.length > 0 && responseData[0].deletedCount >= 1) {
-        // Successfully deleted, refresh the participant list
         fetchParticipantsAndRole();
       } else {
         throw new Error(`La suppression du participant ${participantEmail} n'a pas été confirmée par le serveur.`);
@@ -802,7 +781,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     }
   }
 
-  // Message Deletion Handlers
   const handleOpenDeleteMessageModal = (message: MessageProps) => {
     setMessageToDelete(message)
     setIsDeleteMessageModalOpen(true)
@@ -819,18 +797,18 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       return
     }
 
-    // RG 1: Check if current user is the author or an admin
     const isAuthor = currentUser.userId === messageToDelete.user_id
     if (!isAuthor && !isAdmin) {
       setMessageError("Vous n'avez pas la permission de supprimer ce message.")
       return
     }
 
-    setIsSubmittingMessage(true) // Use this to disable buttons during deletion
+    setIsSubmittingMessage(true)
     setMessageError(null)
 
     try {
-      const response = await fetch(API_ENDPOINTS.DELETE_MESSAGE, {
+      // ✅ CHANGED: Use authFetch instead of fetch
+      const response = await authFetch(API_ENDPOINTS.DELETE_MESSAGE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -857,7 +835,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
       setIsSubmittingMessage(false)
     }
   }
-
 
   if (loadingCard || loadingParticipants) {
     return (
@@ -886,7 +863,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
     )
   }
 
-  // Conditional rendering for beneficiaries if card is not sent
   if (isBeneficiary && !isCardSent) {
     return (
       <div className="py-8 px-4 sm:px-6 lg:px-8">
@@ -942,11 +918,11 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
           
           <div className="flex flex-col md:flex-row md:space-x-8">
             <div className="md:w-1/2 mb-6 md:mb-0">
-              {(isAdmin || beneficiaryEmail !== null) && ( // RG 1: Always show for admin, or if beneficiary is set
+              {(isAdmin || beneficiaryEmail !== null) && (
                 <div className="text-gray-600 text-sm mb-2">
                   <span className="font-semibold">Bénéficiaire:</span>{' '}
                   <div className="inline-flex items-center space-x-2">
-                    {isEditingBeneficiary && isAdmin ? ( // RG 4: Only admins can modify
+                    {isEditingBeneficiary && isAdmin ? (
                       <input
                         type="email"
                         value={beneficiaryEmailInput}
@@ -956,9 +932,9 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                         disabled={isUpdatingBeneficiary}
                       />
                     ) : (
-                      <span>{beneficiaryEmail || (isAdmin ? 'Non défini' : 'Chargement...')}</span> // Show placeholder for admin if not set
+                      <span>{beneficiaryEmail || (isAdmin ? 'Non défini' : 'Chargement...')}</span>
                     )}
-                    {isAdmin && ( // RG 4: Only admins can modify
+                    {isAdmin && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1000,7 +976,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                   <span className="block sm:inline"> {updateError}</span>
                 </div>
               )}
-              {/* RG 1: Un bénéficiaire ne peux pas modifier la cagnotte, il ne voit pas le toggle de la cagnotte */}
               {!isBeneficiary && (
                 <div className="flex items-center justify-between mb-4">
                   <label htmlFor="moneyPotToggle" className="flex items-center cursor-pointer">
@@ -1030,14 +1005,13 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                 </div>
               )}
 
-              {/* RG 1: il voit uniquement le lien de la cagnotte s’il existe */}
-              {isMoneyPotActive && ( /* Changed condition from `isMoneyPotActive && card.moneyPotLink` to `isMoneyPotActive` */
+              {isMoneyPotActive && (
                 <div className="mb-4">
                   <p className="text-gray-600 text-sm mb-2">
                     <span className="font-semibold">Lien Cagnotte:</span>{' '}
                   </p>
                   <div className="flex items-center space-x-2">
-                    {isEditingMoneyPot && isAdmin ? ( // RG 1: Only admins can modify
+                    {isEditingMoneyPot && isAdmin ? (
                       <input
                         type="url"
                         value={moneyPotLinkInput}
@@ -1047,7 +1021,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                         disabled={isUpdatingCard}
                       />
                     ) : (
-                      card.moneyPotLink ? ( /* Added conditional rendering for the link itself */
+                      card.moneyPotLink ? (
                         <a
                           href={card.moneyPotLink}
                           target="_blank"
@@ -1057,10 +1031,10 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                           {card.moneyPotLink}
                         </a>
                       ) : (
-                        <span className="text-gray-500">Aucun lien défini</span> /* Placeholder if no link */
+                        <span className="text-gray-500">Aucun lien défini</span>
                       )
                     )}
-                    {isAdmin && ( // RG 1: Only admins can modify
+                    {isAdmin && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1085,7 +1059,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
-          {/* Compact Participant Section */}
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <h2 className="text-2xl font-bold text-gray-900">Participants de la Carte ({participants.length})</h2>
@@ -1110,7 +1083,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                 )}
               </div>
             </div>
-            {/* RG 3: Un bénéficiaire ne peut pas modifier la liste des participants */}
             {!isBeneficiary && (
               <button
                 onClick={handleOpenManageParticipantsModal}
@@ -1137,7 +1109,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
             <div className="flex justify-center items-center h-24">
               <p className="text-gray-700">Chargement des messages...</p>
             </div>
-          ) : messages.length === 0 ? ( // RG1: Display info message if no messages
+          ) : messages.length === 0 ? (
             <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
               <p className="text-lg text-gray-600">
                 Votre carte est magnifique et attend ses premiers vœux. Partagez le lien d'invitation pour que vos amis et votre famille commencent à la remplir de messages, photos et vidéos !
@@ -1148,7 +1120,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
               {messages.map((message) => (
                 <div 
                   key={message._id} 
-                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex-grow flex-shrink basis-auto min-w-[280px] max-w-sm relative group" // Added 'relative group' for hover effect
+                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex-grow flex-shrink basis-auto min-w-[280px] max-w-sm relative group"
                 >
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-indigo-600">
@@ -1160,7 +1132,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                   </div>
                   {renderMessageContent(message)}
 
-                  {/* RG 1 & RG 2 - UI: Delete icon */}
                   {(currentUser?.userId === message.user_id || isAdmin) && (
                     <button
                       onClick={() => handleOpenDeleteMessageModal(message)}
@@ -1178,7 +1149,6 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
           <hr className="my-6 border-gray-200" />
 
-          {/* RG 2: Un bénéficiaire ne peux pas écrire de message, l’espace message n’est pas affiché */}
           {!isBeneficiary && (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Votre Message pour {card.title}</h2>
@@ -1189,7 +1159,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                       type="button"
                       onClick={() => {
                         setSelectedMessageType('text');
-                        setGeneratedImageContent(null); // Clear generated image when switching type
+                        setGeneratedImageContent(null);
                       }}
                       className={`p-2 rounded-lg transition-colors duration-200 ${
                         selectedMessageType === 'text' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
@@ -1202,7 +1172,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                       type="button"
                       onClick={() => {
                         setSelectedMessageType('image');
-                        setTextMessageContent(''); // Clear text when switching type
+                        setTextMessageContent('');
                       }}
                       className={`p-2 rounded-lg transition-colors duration-200 ${
                         selectedMessageType === 'image' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
@@ -1215,7 +1185,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                       type="button"
                       onClick={() => {
                         setSelectedMessageType('video');
-                        setGeneratedImageContent(null); // Clear generated image when switching type
+                        setGeneratedImageContent(null);
                       }}
                       className={`p-2 rounded-lg transition-colors duration-200 ${
                         selectedMessageType === 'video' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
@@ -1228,7 +1198,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                       type="button"
                       onClick={() => {
                         setSelectedMessageType('audio');
-                        setGeneratedImageContent(null); // Clear generated image when switching type
+                        setGeneratedImageContent(null);
                       }}
                       className={`p-2 rounded-lg transition-colors duration-200 ${
                         selectedMessageType === 'audio' ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-200'
@@ -1269,7 +1239,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                         onChange={(e) => {
                           setImageFile(e.target.files ? e.target.files[0] : null);
-                          setGeneratedImageContent(null); // Clear generated image if user selects a file
+                          setGeneratedImageContent(null);
                         }}
                         disabled={isSubmittingMessage}
                       />

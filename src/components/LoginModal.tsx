@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Loader2, LogIn, Eye, EyeOff, CheckCircle } from 'lucide-react'
-import { API_ENDPOINTS } from '../config/api'
+import { API_ENDPOINTS, apiCallNoAuth } from '../config/api'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -9,7 +9,7 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [isLoginView, setIsLoginView] = useState(true) // true for login, false for register
+  const [isLoginView, setIsLoginView] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -18,14 +18,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
-
-  // L'écouteur d'événement pour le retour de la popup Google SSO est supprimé
-  // car nous passons à un flux de redirection complète.
-  useEffect(() => {
-    // Nettoyage de l'écouteur précédent si nécessaire, bien qu'il soit supprimé du code.
-    // Si vous aviez un écouteur global dans index.html, il restera actif.
-    // Pour ce composant, il n'y a plus de logique SSO basée sur postMessage.
-  }, []);
 
   const resetForm = () => {
     setEmail('')
@@ -40,16 +32,14 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
   const handleClose = () => {
     resetForm()
-    setIsLoginView(true) // Reset to login view on close
+    setIsLoginView(true)
     onClose()
   }
 
   const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword
-    )
+    setShowPassword(!showPassword)
   }
 
-  // Password strength criteria
   const passwordCriteria = {
     minLength: password.length >= 8,
     hasUpperCase: /[A-Z]/.test(password),
@@ -75,12 +65,13 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     }
 
     try {
-      const response = await fetch(API_ENDPOINTS.GET_USER, {
+      // Use apiCallNoAuth to skip 401 handling for login endpoint
+      const response = await apiCallNoAuth(API_ENDPOINTS.GET_USER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user_id: email, password: password }), // Renamed 'email' to 'user_id'
+        body: JSON.stringify({ user_id: email, password: password }),
       })
 
       if (!response.ok) {
@@ -96,33 +87,39 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
       const data = await response.json()
 
-      // Expected success response for GETUSER is an array with one object containing tokens
       if (Array.isArray(data) && data.length > 0) {
         const userData = data[0];
         const { user_id, token_id, refresh_token } = userData;
 
         if (token_id) {
-          // --- Firebase Authentication Integration ---
-          // This is a placeholder for actual Firebase Auth logic.
-          // You would typically import Firebase auth instance and use signInWithCustomToken.
-          // Example:
-          // import { getAuth, signInWithCustomToken } from 'firebase/auth';
-          // const auth = getAuth();
-          // await signInWithCustomToken(auth, token_id);
-          //
-          // For now, we'll simulate success and log the tokens.
-          console.log('Firebase Custom Token (Login):', token_id);
-          console.log('Firebase Refresh Token (Login):', refresh_token);
-          // Assume Firebase sign-in was successful here.
-          // In a real app, you'd handle Firebase errors.
-          // --- End Firebase Authentication Integration ---
+          console.log('[LoginModal] Firebase Custom Token received:', token_id);
+          console.log('[LoginModal] Firebase Refresh Token received:', refresh_token);
 
-          // Note: GETUSER response doesn't include _id, firstName, lastName directly.
-          // You might need another call (e.g., GetUserInformation) or store these on client-side
-          // after initial registration/login if they are needed for onLoginSuccess.
-          // For now, we'll pass email as userId and a placeholder for _id.
-          // If _id, firstName, lastName are critical, you'll need to fetch them.
-          onLoginSuccess(user_id, 'placeholder_id', undefined, undefined); // Adjust if _id, firstName, lastName are available
+          // Store token in localStorage for authFetch to use
+          const userToStore = {
+            userId: user_id,
+            _id: 'placeholder_id',
+            token: token_id,
+            refreshToken: refresh_token
+          };
+          
+          console.log('[LoginModal] About to store in localStorage:', userToStore);
+          localStorage.setItem('currentUser', JSON.stringify(userToStore));
+          
+          // Verify storage immediately
+          const verifyStorage = localStorage.getItem('currentUser');
+          console.log('[LoginModal] Verification - Raw localStorage after storage:', verifyStorage);
+          
+          if (verifyStorage) {
+            const parsedVerify = JSON.parse(verifyStorage);
+            console.log('[LoginModal] Verification - Parsed object:', parsedVerify);
+            console.log('[LoginModal] Verification - Token exists:', !!parsedVerify.token);
+            console.log('[LoginModal] Verification - Token value:', parsedVerify.token);
+          }
+          
+          console.log('[LoginModal] Token stored in localStorage');
+
+          onLoginSuccess(user_id, 'placeholder_id', undefined, undefined);
           handleClose();
         } else {
           setError('Connexion réussie, mais aucun jeton d\'authentification reçu.');
@@ -162,17 +159,17 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
     }
 
     try {
-      const registerResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
+      // Use apiCallNoAuth to skip 401 handling for register endpoint
+      const registerResponse = await apiCallNoAuth(API_ENDPOINTS.INSERT_USER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ firstName, lastName, user_id: email, password }), // Renamed 'email' to 'user_id'
+        body: JSON.stringify({ firstName, lastName, user_id: email, password }),
       })
 
       if (!registerResponse.ok) {
         const errorData = await registerResponse.json()
-        // Handle specific InsertUser error for existing email
         if (Array.isArray(errorData) && errorData.length > 0 && errorData[0].description === 'INVALID_EMAIL') {
           setError('Cette adresse e-mail est déjà utilisée.')
         } else {
@@ -184,27 +181,40 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
       const registerData = await registerResponse.json()
 
-      // Handle new response structure for InsertUser with tokens
       if (Array.isArray(registerData) && registerData.length > 0) {
         const userData = registerData[0];
         const { user_id, _id, firstName, lastName, token_id, refresh_token, expiresIn } = userData;
 
         if (token_id) {
-          // --- Firebase Authentication Integration ---
-          // This is a placeholder for actual Firebase Auth logic.
-          // You would typically import Firebase auth instance and use signInWithCustomToken.
-          // Example:
-          // import { getAuth, signInWithCustomToken } from 'firebase/auth';
-          // const auth = getAuth();
-          // await signInWithCustomToken(auth, token_id);
-          //
-          // For now, we'll simulate success and log the tokens.
-          console.log('Firebase Custom Token (Register):', token_id);
-          console.log('Firebase Refresh Token (Register):', refresh_token);
-          console.log('Firebase Token Expires In (Register):', expiresIn);
-          // Assume Firebase sign-in was successful here.
-          // In a real app, you'd handle Firebase errors.
-          // --- End Firebase Authentication Integration ---
+          console.log('[LoginModal] Firebase Custom Token received (Register):', token_id);
+          console.log('[LoginModal] Firebase Refresh Token received (Register):', refresh_token);
+          console.log('[LoginModal] Firebase Token Expires In (Register):', expiresIn);
+
+          // Store token in localStorage for authFetch to use
+          const userToStore = {
+            userId: user_id,
+            _id: _id,
+            firstName: firstName,
+            lastName: lastName,
+            token: token_id,
+            refreshToken: refresh_token
+          };
+          
+          console.log('[LoginModal] About to store in localStorage (Register):', userToStore);
+          localStorage.setItem('currentUser', JSON.stringify(userToStore));
+          
+          // Verify storage immediately
+          const verifyStorage = localStorage.getItem('currentUser');
+          console.log('[LoginModal] Verification - Raw localStorage after storage (Register):', verifyStorage);
+          
+          if (verifyStorage) {
+            const parsedVerify = JSON.parse(verifyStorage);
+            console.log('[LoginModal] Verification - Parsed object (Register):', parsedVerify);
+            console.log('[LoginModal] Verification - Token exists (Register):', !!parsedVerify.token);
+            console.log('[LoginModal] Verification - Token value (Register):', parsedVerify.token);
+          }
+          
+          console.log('[LoginModal] Token stored in localStorage');
 
           onLoginSuccess(user_id, _id, firstName, lastName);
           handleClose();
@@ -212,8 +222,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
           setError('Inscription réussie, mais aucun jeton d\'authentification reçu.');
         }
       } else if (registerData.result === 'KO' && registerData.cause === 'email already exists') {
-        // This block might be redundant if the above error handling for INVALID_EMAIL covers it.
-        // Keeping it for now in case there are other 'email already exists' scenarios not covered by 'INVALID_EMAIL' description.
         setError('Cette adresse e-mail est déjà utilisée.')
       } else {
         setError('Erreur Serveur: Réponse inattendue lors de l\'inscription.')
@@ -225,20 +233,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
       setLoading(false)
     }
   }
-
-  // La fonction handleGoogleLogin est supprimée car nous utilisons une balise <a> pour la redirection directe.
-  // const handleGoogleLogin = () => {
-  //   setError(null)
-  //   setLoading(true)
-  //   const googleOAuthUrl = import.meta.env.VITE_GOOGLE_OAUTH_URL
-
-  //   if (googleOAuthUrl) {
-  //     window.location.href = googleOAuthUrl
-  //   } else {
-  //     setError('URL de connexion Google non configurée.')
-  //     setLoading(false)
-  //   }
-  // }
 
   if (!isOpen) return null
 

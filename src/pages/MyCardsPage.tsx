@@ -1,33 +1,32 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { PlusCircle, Gift, Users, Share2, LogIn, Trash2 } from 'lucide-react'
-import { API_ENDPOINTS } from '../config/api'
+import { API_ENDPOINTS, apiCall } from '../config/api'
 import LoginModal from '../components/LoginModal'
 import InviteParticipantsModal from '../components/InviteParticipantsModal'
-import DeleteConfirmationModal from '../components/DeleteConfirmationModal' // Import new modal
+import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
 interface CardProps {
   _id: string
   title: string
-  description: string // Added description for potential display
+  description: string
   recipient: string
-  type: 'created' | 'participated' | 'beneficiary' // Added beneficiary type
+  type: 'created' | 'participated' | 'beneficiary'
   contributors: number
-  status: 'draft' | 'sent' | 'upcoming' // Status from backend
+  status: 'draft' | 'sent' | 'upcoming'
   cover: string
-  // shareAt: string // REMOVED: No longer used
   createdBy: string
   createdAt: string
   updatedAt: string
   moneyPotLink?: string
-  userRoleOnCard?: 'admin' | 'contributor' | 'beneficiary' // Added to store current user's role for this card
+  userRoleOnCard?: 'admin' | 'contributor' | 'beneficiary'
 }
 
 interface UlinkCardProps {
   _id: string
   user_id: string
   card_id: string
-  role: 'admin' | 'contributor' | 'beneficiary' // Added beneficiary role
+  role: 'admin' | 'contributor' | 'beneficiary'
   updatedAt: string
   createdAt: string
 }
@@ -47,10 +46,10 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false) // State for invite modal
-  const [selectedCardIdForInvite, setSelectedCardIdForInvite] = useState<string | null>(null) // State to hold cardId for invite modal
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false) // State for delete modal
-  const [cardToDelete, setCardToDelete] = useState<CardProps | null>(null) // State to hold card to be deleted
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [selectedCardIdForInvite, setSelectedCardIdForInvite] = useState<string | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [cardToDelete, setCardToDelete] = useState<CardProps | null>(null)
 
   const navigate = useNavigate()
 
@@ -67,7 +66,8 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       // RG 1: Fetch linked card IDs and roles using GetCardsByUser for the current user
       const requestBody = { user_id: currentUser.userId };
 
-      const ulinkResponse = await fetch(API_ENDPOINTS.GET_CARDS_BY_USER, {
+      // FIXED: Use apiCall instead of fetch to enable 401 handling
+      const ulinkResponse = await apiCall(API_ENDPOINTS.GET_CARDS_BY_USER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,12 +94,13 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       )
 
       // RG 2: Fetch card details using GetCards with the retrieved card_ids
-      const cardsResponse = await fetch(API_ENDPOINTS.GET_CARDS, {
+      // FIXED: Use apiCall instead of fetch to enable 401 handling
+      const cardsResponse = await apiCall(API_ENDPOINTS.GET_CARDS, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ _ids: cardIds }), // Pass array of card IDs
+        body: JSON.stringify({ _ids: cardIds }),
       })
 
       if (!cardsResponse.ok) {
@@ -111,7 +112,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
 
       // RG2: If no cards, the endpoint returns [{"error": "no card"}]
       if (Array.isArray(data) && data.length === 1 && (data[0] as any).error === "no card") {
-        setMyCards([]); // Set to empty array if "no card" error
+        setMyCards([]);
         setLoading(false);
         return;
       }
@@ -123,15 +124,16 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       }
 
       const cardPromises = data.map(async (card) => {
-          const role = cardRoles.get(card._id) || 'contributor' // Default to contributor if role not found
+          const role = cardRoles.get(card._id) || 'contributor'
           
           // Filter for beneficiaries: only show if card status is 'sent'
           if (role === 'beneficiary' && card.status !== 'sent') {
-            return null // Don't include this card for beneficiary if not sent
+            return null
           }
 
           // Fetch all users linked to this specific card to count contributors and determine recipient
-          const usersByCardResponse = await fetch(API_ENDPOINTS.GET_USERS_BY_CARD, {
+          // FIXED: Use apiCall instead of fetch to enable 401 handling
+          const usersByCardResponse = await apiCall(API_ENDPOINTS.GET_USERS_BY_CARD, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ card_id: card._id }),
@@ -139,7 +141,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
 
           if (!usersByCardResponse.ok) {
               console.error(`Failed to fetch users for card ${card._id}`);
-              return null; // Skip this card if user links cannot be fetched
+              return null;
           }
           const linkedUsers: UlinkCardProps[] = await usersByCardResponse.json();
           
@@ -172,7 +174,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
             contributors,
             type: cardType,
             recipient: displayRecipient,
-            userRoleOnCard: role, // Assign the current user's role for this card
+            userRoleOnCard: role,
           }
         });
 
@@ -184,7 +186,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
         throw new Error('Erreur interne: Le traitement des cartes n\'a pas renvoyé un tableau valide.');
       }
 
-      const processedCards = resolvedCards.filter(Boolean) as CardProps[] // This is line 158
+      const processedCards = resolvedCards.filter(Boolean) as CardProps[]
 
       setMyCards(processedCards)
     } catch (err) {
@@ -205,7 +207,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
         return 'bg-yellow-100 text-yellow-800'
       case 'sent':
         return 'bg-green-100 text-green-800'
-      case 'upcoming': // This status is not currently used by the backend, but kept for consistency
+      case 'upcoming':
         return 'bg-blue-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800'
@@ -223,8 +225,6 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
   const handleCloseInviteModal = () => {
     setIsInviteModalOpen(false)
     setSelectedCardIdForInvite(null)
-    // Optionally re-fetch cards to update contributor count if needed
-    // fetchCards(); 
   }
 
   const handleOpenDeleteModal = (card: CardProps) => {
@@ -241,7 +241,8 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
     if (!cardToDelete || !currentUser) return
 
     try {
-      const response = await fetch(API_ENDPOINTS.DELETE_ULINK_CARD, {
+      // FIXED: Use apiCall instead of fetch to enable 401 handling
+      const response = await apiCall(API_ENDPOINTS.DELETE_ULINK_CARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -257,13 +258,12 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
         throw new Error(errorData.message || 'Erreur lors de la suppression de la carte.')
       }
 
-      // If deletion is successful, close modal and refresh cards
       handleCloseDeleteModal()
-      fetchCards() // Re-fetch cards to update the list
+      fetchCards()
     } catch (err) {
       console.error('Failed to delete card:', err)
       setError((err as Error).message || 'Impossible de supprimer la carte. Veuillez réessayer.')
-      handleCloseDeleteModal() // Close modal even on error
+      handleCloseDeleteModal()
     }
   }
 
@@ -328,7 +328,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {myCards.map((card) => (
-            <div key={card._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200 group relative"> {/* Added group and relative for hover effect */}
+            <div key={card._id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200 group relative">
               <div className="relative h-48">
                 <img src={card.cover} alt={card.title} className="w-full h-full object-cover" />
                 <span className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(card.status)}`}>
@@ -340,11 +340,10 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
                   {card.type === 'beneficiary' ? 'Bénéficiaire' : 'Participant'}
                 </span>
 
-                {/* Delete Button - Conditional Visibility and Position */}
                 {card.userRoleOnCard === 'admin' && (
                   <button
                     onClick={(e) => {
-                      e.stopPropagation(); // Prevent navigating to card detail
+                      e.stopPropagation();
                       handleOpenDeleteModal(card);
                     }}
                     className="absolute bottom-3 right-3 p-1 rounded-full bg-white bg-opacity-75 text-gray-400 hover:text-red-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
@@ -385,7 +384,7 @@ const MyCardsPage: React.FC<MyCardsPageProps> = ({ currentUser, onLoginSuccess }
           isOpen={isInviteModalOpen}
           onClose={handleCloseInviteModal}
           cardId={selectedCardIdForInvite}
-          onInvitationsSent={handleCloseInviteModal} // Close modal and potentially refresh list
+          onInvitationsSent={handleCloseInviteModal}
         />
       )}
 
