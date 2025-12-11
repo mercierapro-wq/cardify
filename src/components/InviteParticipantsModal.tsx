@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Mail, Loader2, Link as LinkIcon, Check } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import { authFetch } from '../utils/authFetch' // ✅ IMPORT ADDED
 
 interface InviteParticipantsModalProps {
   isOpen: boolean
@@ -47,7 +48,7 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
     try {
       const results = await Promise.all(emails.map(async (email) => {
         try {
-          let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
+          let userResponse = await authFetch(API_ENDPOINTS.INSERT_USER, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email }),
@@ -57,7 +58,7 @@ const InviteParticipantsModal: React.FC<InviteParticipantsModalProps> = ({ isOpe
             console.warn(`User creation/check for ${email} failed or user exists. Proceeding to link.`, await userResponse.json());
           }
 
-          const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
+          const linkResponse = await authFetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Image, Mail, Save, XCircle, DollarSign, UserPlus, Sparkles, Upload } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 import AIMessageModal from '../components/AIMessageModal' // Import AIMessageModal
+import { authFetch } from '../utils/authFetch' // ✅ IMPORT ADDED
 
 interface User {
   userId: string
@@ -129,7 +130,7 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
 
     try {
       // 1. Insert the card
-      const cardResponse = await fetch(API_ENDPOINTS.INSERT_CARD, {
+      const cardResponse = await authFetch(API_ENDPOINTS.INSERT_CARD, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -169,7 +170,7 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
         }
 
         try {
-          const ulinkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
+          const ulinkResponse = await authFetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -186,7 +187,7 @@ const CreateCardPage: React.FC<CreateCardPageProps> = ({ currentUser }) => {
           // Send email notification to contributors (not to admin creator or beneficiary)
           if (email !== currentUser.userId && email !== beneficiaryEmail.trim()) {
             const cardLink = `${window.location.origin}/card/${cardId}`;
-            const emailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+            const emailResponse = await authFetch(API_ENDPOINTS.SEND_EMAIL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({

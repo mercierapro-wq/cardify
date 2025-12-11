@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { X, Mail, Loader2, Link as LinkIcon, Check, Users } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
 import ParticipantList from './ParticipantList' // Reusing the existing ParticipantList
+import { authFetch } from '../utils/authFetch' // ✅ IMPORT ADDED
+
 
 interface User {
   userId: string
@@ -89,7 +91,7 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
 
       try {
         // 1. Insert/Check User
-        let userResponse = await fetch(API_ENDPOINTS.INSERT_USER, {
+        let userResponse = await authFetch(API_ENDPOINTS.INSERT_USER, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: email }),
@@ -100,7 +102,7 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
         }
 
         // 2. Link User to Card
-        const linkResponse = await fetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
+        const linkResponse = await authFetch(API_ENDPOINTS.INSERT_ULINK_CARD, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -116,7 +118,7 @@ const ManageParticipantsModal: React.FC<ManageParticipantsModalProps> = ({
         }
 
         // 3. RG 2: Send email notification
-        const emailResponse = await fetch(API_ENDPOINTS.SEND_EMAIL, {
+        const emailResponse = await authFetch(API_ENDPOINTS.SEND_EMAIL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

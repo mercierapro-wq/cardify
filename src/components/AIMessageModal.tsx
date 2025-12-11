@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { X, Sparkles, Type, Image, Video, Mic, Loader2, Play, Lightbulb } from 'lucide-react'
 import { API_ENDPOINTS } from '../config/api'
+import { authFetch } from '../utils/authFetch' // ✅ IMPORT ADDED
+
 
 interface AIMessageModalProps {
   isOpen: boolean
@@ -125,7 +127,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
     const promptDescription = `Créé un prompt pour créer un message de type '${activeContentType === 'text' ? 'texte' : 'image'}' pour une carte dont le titre est '${cardTitle}' et la description est '${cardDescription}'. Base toi sur le titre et la description de la carte pour créer un prompt original. RETOURNEZ UNIQUEMENT ET DIRECTEMENT le prompt`
 
     try {
-      const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
+      const response = await authFetch(API_ENDPOINTS.CREATE_CONTENT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -186,7 +188,7 @@ const AIMessageModal: React.FC<AIMessageModalProps> = ({ isOpen, onClose, onInse
 		}
 
     try {
-      const response = await fetch(API_ENDPOINTS.CREATE_CONTENT, {
+      const response = await authFetch(API_ENDPOINTS.CREATE_CONTENT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
