@@ -119,6 +119,46 @@ const getInitials = (firstName?: string, lastName?: string, email?: string): str
   return '?';
 };
 
+// Utility function to generate random background colors for text messages
+const getRandomBackgroundColor = (seed: string): string => {
+  const colors = [
+    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
+    'linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)',
+    'linear-gradient(135deg, #ff6e7f 0%, #bfe9ff 100%)',
+    'linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%)',
+    'linear-gradient(135deg, #f8b500 0%, #fceabb 100%)',
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
+// Utility function to calculate grid row span based on content height
+const calculateRowSpan = (type: string, contentLength: number): number => {
+  if (type === 'text') {
+    if (contentLength < 100) return 20;
+    if (contentLength < 200) return 25;
+    if (contentLength < 300) return 30;
+    return 35;
+  }
+  if (type === 'image') return 30;
+  if (type === 'video') return 35;
+  if (type === 'audio') return 15;
+  return 25;
+};
+
 
 const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
   const { cardId } = useParams<{ cardId: string }>()
@@ -680,52 +720,82 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
 
   const renderMessageContent = (message: MessageProps) => {
     const messageContent = message.content || '';
-    
+    const backgroundColor = getRandomBackgroundColor(message._id);
+
     if (message.message_type === 'text' || message.message_type === 'video') {
       const youtubeId = getYouTubeId(messageContent);
       if (youtubeId) {
-        return <YouTubeEmbed videoId={youtubeId} />;
+        return (
+          <div className="w-full h-full">
+            <YouTubeEmbed videoId={youtubeId} />
+          </div>
+        );
       }
     }
 
     switch (message.message_type) {
       case 'text':
-        return <p className="text-gray-800">{messageContent}</p>
+        return (
+          <div
+            className="masonry-item-text"
+            style={{ background: backgroundColor }}
+          >
+            <p>{messageContent}</p>
+          </div>
+        );
       case 'image':
         const imageSrc = messageContent.startsWith('data:image/') ? messageContent : `data:image/png;base64,${messageContent}`;
         return (
-          <img 
-            src={imageSrc} 
-            alt="Message image" 
-            className="max-w-full h-auto rounded-lg shadow-md" 
-            style={{ maxHeight: '200px', objectFit: 'contain' }}
+          <img
+            src={imageSrc}
+            alt="Message image"
+            className="masonry-item-media"
           />
-        )
+        );
       case 'video':
         return (
-          <a href={messageContent} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline flex items-center">
-            <Video className="w-4 h-4 mr-1" /> Voir la vidéo
-          </a>
-        )
+          <div
+            className="masonry-item-text"
+            style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >
+            <a
+              href={messageContent}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white hover:underline flex items-center text-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Video className="w-6 h-6 mr-2" /> Voir la vidéo
+            </a>
+          </div>
+        );
       case 'audio':
         const audioSrc = messageContent.startsWith('data:audio/') ? messageContent : `data:audio/mpeg;base64,${messageContent}`;
         return (
-          <audio controls src={audioSrc} className="w-full">
-            Votre navigateur ne supporte pas l'élément audio.
-          </audio>
+          <div className="p-6 bg-gradient-to-br from-gray-800 to-gray-900 min-h-[150px] flex items-center justify-center">
+            <audio controls src={audioSrc} className="w-full">
+              Votre navigateur ne supporte pas l'élément audio.
+            </audio>
+          </div>
         );
       default:
         if (typeof messageContent === 'string' && messageContent.startsWith('data:image/')) {
           return (
-            <img 
-              src={messageContent} 
-              alt="Message image (auto-detected)" 
-              className="max-w-full h-auto rounded-lg shadow-md" 
-              style={{ maxHeight: '200px', objectFit: 'contain' }}
+            <img
+              src={messageContent}
+              alt="Message image (auto-detected)"
+              className="masonry-item-media"
             />
-          )
+          );
         }
-        return <p className="text-gray-800">{messageContent}</p>
+        return (
+          <div
+            className="masonry-item-text"
+            style={{ background: backgroundColor }}
+          >
+            <p>{messageContent}</p>
+          </div>
+        );
     }
   }
 
@@ -1116,34 +1186,41 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
               </p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
-              {messages.map((message) => (
-                <div 
-                  key={message._id} 
-                  className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200 flex-grow flex-shrink basis-auto min-w-[280px] max-w-sm relative group"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-indigo-600">
-                      {message.firstName && message.lastName 
-                        ? `${message.firstName} ${message.lastName}` 
-                        : message.user_id}
-                    </span>
-                    <span className="text-sm text-gray-500">{new Date(message.createdAt).toLocaleDateString()}</span>
-                  </div>
-                  {renderMessageContent(message)}
+            <div className="masonry-grid">
+              {messages.map((message) => {
+                const displayName = message.firstName && message.lastName
+                  ? `${message.firstName} ${message.lastName}`
+                  : message.user_id;
+                const rowSpan = calculateRowSpan(message.message_type, message.content?.length || 0);
 
-                  {(currentUser?.userId === message.user_id || isAdmin) && (
-                    <button
-                      onClick={() => handleOpenDeleteMessageModal(message)}
-                      className="absolute bottom-2 right-2 p-1 rounded-full text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      title="Supprimer le message"
-                      disabled={isSubmittingMessage}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                return (
+                  <div
+                    key={message._id}
+                    className="masonry-item"
+                    style={{ gridRowEnd: `span ${rowSpan}` }}
+                  >
+                    {renderMessageContent(message)}
+
+                    <div className="masonry-item-overlay">
+                      <p className="text-white font-semibold text-sm">{displayName}</p>
+                      <p className="text-white text-xs opacity-80">
+                        {new Date(message.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+
+                    {(currentUser?.userId === message.user_id || isAdmin) && (
+                      <button
+                        onClick={() => handleOpenDeleteMessageModal(message)}
+                        className="masonry-delete-btn text-red-600 hover:text-red-700"
+                        title="Supprimer le message"
+                        disabled={isSubmittingMessage}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
