@@ -259,7 +259,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         {isLoginView ? (
           <>
             <a
-              href={import.meta.env.VITE_GOOGLE_OAUTH_URL}
+              href="https://accounts.google.com/o/oauth2/v2/auth?client_id=16847744847-qgtgslvsujpudjknvvtdhrrq8h881e4m.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fsouplike-marjorie-fierily.ngrok-free.dev%2Fmy-cards&response_type=code&scope=openid%20email%20profile"
               target="_top"
               className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-base font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mb-6"
               aria-label="Continuer avec Google"
