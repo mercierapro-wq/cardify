@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Toaster, toast } from 'react-hot-toast'
 import { checkSessionExpired } from './utils/authFetch'
+import { API_ENDPOINTS, apiCallNoAuth } from './config/api'
 import Layout from './components/Layout'
 import HomePage from './pages/HomePage'
 import MyCardsPage from './pages/MyCardsPage'
@@ -49,6 +50,105 @@ function App() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    const handleSSGoogleCallback = async () => {
+      const fragment = window.location.hash
+
+      if (!fragment.startsWith('#token=')) {
+        return
+      }
+
+      const token = fragment.substring('#token='.length)
+
+      if (!token) {
+        console.warn('[App.SSO] Token fragment found but empty')
+        window.history.replaceState(null, '', window.location.pathname)
+        return
+      }
+
+      console.log('[App.SSO] Token found in URL fragment, processing SSO callback')
+
+      try {
+        const userToStore = {
+          userId: 'placeholder_sso',
+          _id: 'placeholder_sso',
+          token: token,
+          refreshToken: undefined
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify(userToStore))
+        console.log('[App.SSO] Token stored in localStorage')
+
+        const response = await apiCallNoAuth(API_ENDPOINTS.GET_USER, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ token: token }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          console.error('[App.SSO] Failed to get user info:', errorData)
+          toast.error('Erreur lors de la récupération des informations utilisateur', {
+            duration: 5000,
+            position: 'top-center',
+          })
+          localStorage.removeItem('currentUser')
+          window.history.replaceState(null, '', window.location.pathname)
+          return
+        }
+
+        const data = await response.json()
+
+        if (Array.isArray(data) && data.length > 0) {
+          const userData = data[0]
+          const { user_id, _id, firstName, lastName } = userData
+
+          const fullUser: User = {
+            userId: user_id,
+            _id: _id,
+            firstName: firstName,
+            lastName: lastName,
+            token: token,
+            refreshToken: undefined
+          }
+
+          console.log('[App.SSO] User info retrieved:', { user_id, firstName, lastName })
+          localStorage.setItem('currentUser', JSON.stringify(fullUser))
+          setCurrentUser(fullUser)
+
+          window.history.replaceState(null, '', window.location.pathname)
+          navigate('/my-cards')
+
+          toast.success(`Bienvenue ${firstName || 'utilisateur'}!`, {
+            duration: 3000,
+            position: 'top-center',
+          })
+        } else {
+          console.error('[App.SSO] Unexpected response format')
+          toast.error('Erreur lors de la connexion SSO', {
+            duration: 5000,
+            position: 'top-center',
+          })
+          localStorage.removeItem('currentUser')
+          window.history.replaceState(null, '', window.location.pathname)
+        }
+      } catch (error) {
+        console.error('[App.SSO] Error processing SSO callback:', error)
+        toast.error('Erreur lors de la connexion SSO. Veuillez réessayer.', {
+          duration: 5000,
+          position: 'top-center',
+        })
+        localStorage.removeItem('currentUser')
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+    }
+
+    handleSSGoogleCallback()
+  }, [navigate])
 
   const handleUserUpdate = (userId: string, _id: string, firstName?: string, lastName?: string) => {
     // CRITICAL: Preserve existing token and refreshToken when updating user
