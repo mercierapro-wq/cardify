@@ -84,8 +84,9 @@ function App() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ user_id: token, password: token }),
+          body: JSON.stringify({ token: token }),
         })
 
         if (!response.ok) {
