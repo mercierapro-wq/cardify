@@ -86,7 +86,7 @@ function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ user_id: "", password: "", user_type: "SSO" }),
+          body: JSON.stringify({ user_id: user_id, password: "", user_type: "SSO" }),
         })
 
         if (!response.ok) {
