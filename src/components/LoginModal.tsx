@@ -71,7 +71,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ user_id: email, password: password }),
+        body: JSON.stringify({ user_id: email, password: password, user_type: "email" }),
       })
 
       if (!response.ok) {
