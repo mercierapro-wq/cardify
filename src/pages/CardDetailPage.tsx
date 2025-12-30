@@ -1258,6 +1258,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                     >
                       <Image className="w-5 h-5" />
                     </button>
+                    {/* 
                     <button
                       type="button"
                       onClick={() => {
@@ -1284,6 +1285,7 @@ const CardDetailPage: React.FC<CardDetailPageProps> = ({ currentUser }) => {
                     >
                       <Mic className="w-5 h-5" />
                     </button>
+                    */}
                     <button
                       type="button"
                       onClick={() => setIsAIMessageModalOpen(true)}

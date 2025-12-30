@@ -258,6 +258,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
 
         {isLoginView ? (
           <>
+            {/* Google SSO Button Hidden
             <a
               href={import.meta.env.VITE_GOOGLE_SSO_URL}
               target="_top"
@@ -273,6 +274,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onLoginSuccess
               <span className="flex-shrink mx-4 text-gray-500 text-sm">ou</span>
               <div className="flex-grow border-t border-gray-300"></div>
             </div>
+            */}
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
