@@ -9,6 +9,7 @@ import MyCardsPage from './pages/MyCardsPage'
 import CreateCardPage from './pages/CreateCardPage'
 import CardDetailPage from './pages/CardDetailPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
+import PrivacyPage from './pages/PrivacyPage'
 
 interface User {
   userId: string
@@ -86,7 +87,7 @@ function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ user_id: user_id, password: "", user_type: "SSO" }),
+          body: JSON.stringify({ user_id: userToStore.userId, password: "", user_type: "SSO" }),
         })
 
         if (!response.ok) {
@@ -231,6 +232,7 @@ function App() {
             path="/settings"
             element={<AccountSettingsPage currentUser={currentUser} onUserUpdate={handleUserUpdate} />}
           />
+          <Route path="/privacy" element={<PrivacyPage />} />
         </Routes>
       </Layout>
     </>

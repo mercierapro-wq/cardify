@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Home, Gift, PlusCircle, LogIn } from 'lucide-react'
 import LoginModal from './LoginModal'
 import UserMenu from './UserMenu' // Import the new UserMenu component
+import CookieBanner from './CookieBanner'
 
 interface User {
   userId: string
@@ -74,6 +75,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
       </main>
 
       <LoginModal isOpen={isLoginModalOpen} onClose={closeLoginModal} onLoginSuccess={onLoginSuccess} />
+      <CookieBanner />
     </div>
   )
 }
