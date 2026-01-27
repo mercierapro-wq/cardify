@@ -4,6 +4,7 @@ import { Home, Gift, PlusCircle, LogIn } from 'lucide-react'
 import LoginModal from './LoginModal'
 import UserMenu from './UserMenu' // Import the new UserMenu component
 import CookieBanner from './CookieBanner'
+import Footer from './Footer'
 
 interface User {
   userId: string
@@ -26,8 +27,9 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
   const closeLoginModal = () => setIsLoginModalOpen(false)
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="flex-grow flex flex-col">
+        <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center">
             <Link to="/" className="text-2xl font-bold text-indigo-600 mr-8">
@@ -70,9 +72,12 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow">
         {children}
       </main>
+    </div>
+
+    <Footer />
 
       <LoginModal isOpen={isLoginModalOpen} onClose={closeLoginModal} onLoginSuccess={onLoginSuccess} />
       <CookieBanner />
