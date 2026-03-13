@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/cardify_icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO primaire -->
+    <title>Cardify - Cartes de vœux collaboratives en ligne</title>
+    <meta name="description" content="Créez des cartes de vœux numériques collaboratives avec vos amis, votre famille et vos collègues. Ajoutez texte, photos, vidéos et utilisez l'IA pour personnaliser vos messages." />
+    <meta name="keywords" content="carte de vœux, carte collaborative, carte numérique, carte anniversaire, carte en ligne, IA, collaboration" />
+    <meta name="author" content="Cardify - NodalForge" />
+    <link rel="canonical" href="https://cardify.nodalforge.cloud/" />
+
+    <!-- Open Graph (Facebook, LinkedIn) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cardify.nodalforge.cloud/" />
+    <meta property="og:title" content="Cardify - Cartes de vœux collaboratives en ligne" />
+    <meta property="og:description" content="Créez des cartes de vœux numériques collaboratives avec vos amis, votre famille et vos collègues. Ajoutez texte, photos, vidéos et utilisez l'IA pour personnaliser vos messages." />
+    <meta property="og:image" content="https://cardify.nodalforge.cloud/cardify_icon.png" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:site_name" content="Cardify" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://cardify.nodalforge.cloud/" />
+    <meta name="twitter:title" content="Cardify - Cartes de vœux collaboratives en ligne" />
+    <meta name="twitter:description" content="Créez des cartes de vœux numériques collaboratives avec vos amis, votre famille et vos collègues. Ajoutez texte, photos, vidéos et utilisez l'IA pour personnaliser vos messages." />
+    <meta name="twitter:image" content="https://cardify.nodalforge.cloud/cardify_icon.png" />
+
+    <!-- Indexation -->
+    <meta name="robots" content="index, follow" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Écouteur global pour le débogage des messages postés
+      window.addEventListener('message', (event) => {
+        console.log('GLOBAL LISTENER: Message received in main window!');
+        console.log('GLOBAL LISTENER: Origin:', event.origin);
+        console.log('GLOBAL LISTENER: Data:', event.data);
+      });
+      console.log('GLOBAL LISTENER: Message event listener attached to window.');
+    </script>
+  </body>
+</html>
