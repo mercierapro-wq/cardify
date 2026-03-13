@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Allow: /privacy
+
+Disallow: /my-cards
+Disallow: /create-card
+Disallow: /card/
+Disallow: /settings
+
+Sitemap: https://cardify.nodalforge.cloud/sitemap.xml
