@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Home, Gift, PlusCircle, LogIn } from 'lucide-react'
+import { Home, Gift, PlusCircle, LogIn, HelpCircle } from 'lucide-react'
 import LoginModal from './LoginModal'
 import UserMenu from './UserMenu' // Import the new UserMenu component
 import CookieBanner from './CookieBanner'
@@ -47,13 +47,18 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
                     <Gift className="w-5 h-5 mr-1" /> Mes Cartes
                   </Link>
                 </li>
-                {currentUser && ( // Only show "Créer une carte" if logged in
+                {currentUser && (
                   <li>
                     <Link to="/create-card" className="text-gray-600 hover:text-indigo-600 flex items-center">
                       <PlusCircle className="w-5 h-5 mr-1" /> Créer une carte
                     </Link>
                   </li>
                 )}
+                <li>
+                  <Link to="/faq" className="text-gray-600 hover:text-indigo-600 flex items-center">
+                    <HelpCircle className="w-5 h-5 mr-1" /> FAQ
+                  </Link>
+                </li>
               </ul>
             </nav>
           </div>
@@ -72,7 +77,7 @@ const Layout: React.FC<LayoutProps> = ({ children, currentUser, onLoginSuccess, 
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow">
+      <main className="w-full max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 flex-grow overflow-x-hidden">
         {children}
       </main>
     </div>

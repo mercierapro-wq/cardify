@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Globe, Shield, ExternalLink } from 'lucide-react';
+import { Mail, Globe, Shield, ExternalLink, HelpCircle } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -57,6 +57,11 @@ const Footer: React.FC = () => {
               <li>
                 <Link to="/privacy" className="text-gray-600 hover:text-indigo-600 text-sm flex items-center gap-2 transition-colors">
                   <Shield className="w-4 h-4" /> Politique de Confidentialité
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="text-gray-600 hover:text-indigo-600 text-sm flex items-center gap-2 transition-colors">
+                  <HelpCircle className="w-4 h-4" /> FAQ
                 </Link>
               </li>
             </ul>

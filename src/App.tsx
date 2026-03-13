@@ -10,6 +10,7 @@ import CreateCardPage from './pages/CreateCardPage'
 import CardDetailPage from './pages/CardDetailPage'
 import AccountSettingsPage from './pages/AccountSettingsPage'
 import PrivacyPage from './pages/PrivacyPage'
+import FAQPage from './pages/FAQPage'
 
 interface User {
   userId: string
@@ -233,6 +234,7 @@ function App() {
             element={<AccountSettingsPage currentUser={currentUser} onUserUpdate={handleUserUpdate} />}
           />
           <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/faq" element={<FAQPage />} />
         </Routes>
       </Layout>
     </>
